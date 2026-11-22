@@ -1,4 +1,4 @@
-# tsumugi-piano-cover
+# music-cover
 
 **Generate piano covers of pop songs as MIDI.** The system first transcribes an audio track into multi-instrument MIDI using [tsumugi](https://github.com/anime-song/tsumugi), then generates an arrangement using an autoregressive piano model pretrained on ~3,000 hours of piano performances.
 
