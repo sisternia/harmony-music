@@ -1,0 +1,110 @@
+.ui-volume-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-width: 0;
+}
+.ui-volume-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ui-volume-trigger:hover { background: var(--hover-bg); }
+.ui-volume-trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-volume-popover {
+  position: fixed;
+  z-index: 4000;
+  box-sizing: border-box;
+  width: min(200px, calc(100vw - 16px));
+  padding: 11px 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  font: 13px/1.4 var(--font, system-ui, sans-serif);
+}
+.ui-volume-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.ui-volume-caption output {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.ui-volume-popover input.ui-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.ui-volume-popover input.ui-volume-slider:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 5px;
+}
+.ui-volume-popover .ui-volume-slider::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0 var(--fill, 0%), var(--line) var(--fill, 0%) 100%);
+}
+.ui-volume-popover .ui-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5.5px;
+  border: 2px solid var(--accent-2);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: none;
+}
+.ui-volume-popover .ui-volume-slider::-moz-range-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.ui-volume-popover .ui-volume-slider::-moz-range-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.ui-volume-popover .ui-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent-2);
+  border-radius: 50%;
+  background: var(--panel);
+}
+/* Use shared Piano button sizing and prevent the wrapper from stretching. */
+.piano-page .bar.tool-bar .ui-volume-control {
+  align-self: flex-start;
+}
+.piano-page .bar.tool-bar .ui-volume-control .ui-volume-trigger {
+  border-radius: 8px;
+}
+.piano-page .bar.tool-bar .ui-volume-control .ui-volume-trigger::after { content: none; }

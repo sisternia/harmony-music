@@ -1,0 +1,1496 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2&display=swap');
+
+@font-face {
+	font-family: Bravura;
+	src: url(/fonts/Bravura.woff2);
+	font-display: auto; /* will show no text before font is loaded */
+}
+
+
+.piano-page *, .piano-page ::after, .piano-page ::before {
+	box-sizing: border-box;
+}
+
+.piano-page #networking-app[v-cloak], .piano-page #instrument-app[v-cloak], .piano-page #recorder-app[v-cloak] {
+  visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
+
+.piano-page *[hidden=""], .piano-page *[hidden="hidden"], .piano-page *[hidden="true"]
+{
+	display: none;
+}
+.piano-page {
+	position: relative;
+	display: flex;
+	overflow: hidden;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	width: 100%;
+	font-family: Arial, Helvetica, sans-serif;
+	user-select: none;
+}
+.piano-page {
+	margin: 0;
+	flex-direction: column;
+	background: var(--bg);
+	overflow: hidden;
+	color: var(--text);
+	accent-color: var(--accent);
+	--background: var(--instrument-bg);
+}
+.piano-page.rotated {
+	transform: rotate(90deg);
+	height: 100vw;
+	width: 100vh;
+	overflow: visible;
+}
+
+.piano-page header, .piano-page footer {
+	overflow: hidden; /* fixes unwanted scrolling in rotated mobile mode */
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	height: 4rem;
+	background: var(--instrument-panel);
+	color: var(--instrument-text);
+}
+.piano-page header a {
+	color: inherit;
+	text-decoration: none;
+}
+.piano-page footer {
+	box-shadow: var(--shadow-sm);
+	position: relative;
+	overflow: visible;
+}
+
+.piano-page header h1#logo {
+	font-family: 'Baloo 2', cursive;
+	font-weight: 500;
+	font-style: normal;
+	margin: 0 0.5em;
+	position: relative;
+	letter-spacing: 1px;
+}
+.piano-page header h1#logo::before, .piano-page header h1#logo::after {
+	content: '.';
+	position: absolute;
+	right: 0.8em;
+	bottom: -1px;
+	font-size: 120%;
+	line-height: 1.4;
+	color: var(--instrument-text);
+}
+.piano-page header h1#logo::before {
+	-webkit-text-stroke: 5.5px var(--background);
+}
+.piano-page header h1#logo::after {
+}
+
+.piano-page .reacter {
+	display: flex;
+	flex-direction: column;
+	position: absolute;
+	bottom: 62px;
+	border-radius: 10px;
+	padding: 8px 0 4px;
+	box-shadow: var(--shadow-md);
+	z-index: 5;
+	background: var(--overlay);
+	backdrop-filter: blur(10px);
+	border: 1px solid var(--line-strong);
+}
+.piano-page .reacter>span {
+	display: inline-block;
+	font-size: 20pt;
+	padding: 4px;
+	width: 58px;
+	text-align: center;
+}
+.piano-page .reacter>span:hover {
+	cursor: pointer;
+	transform: scale(1.5);
+}
+.piano-page .reacter>span[disabled] {
+	opacity: 0.4;
+	transform: none;
+}
+.piano-page .reacter>span.sep {
+	height: 0;
+	border-bottom: 1px solid var(--line);
+}
+.piano-page .reaction {
+	color: var(--text);
+	position: absolute;
+	bottom: 62px;
+	z-index: 5;
+	font-size: 28pt;
+	animation: reaction 5s ease-in 0s 1;
+	text-shadow: 0 1px 3px var(--shadow-color);
+	pointer-events: none;
+	left: 3px;
+}
+
+@keyframes reaction {
+	0%   { opacity: 0.0; transform: translateY(40px) scale(0.5);}
+	5%   { opacity: 1.0; transform: translateY( 0px)  scale(1.0);}
+	90%  { opacity: 1.0; transform: translateY(-40px) scale(1.0);}
+	100% { opacity: 0.0; transform: translateY(-80px) scale(2.0);}
+}
+@keyframes minireaction { /* mobile version - reduced travel distance*/
+	0%   { opacity: 0.0; transform: translateY(40px) scale(0.5);}
+	5%   { opacity: 1.0; transform: translateY(0px)  scale(1.0);}
+	90%  { opacity: 1.0; transform: translateY(-30px) scale(1.0);}
+	100% { opacity: 0.0; transform: translateY(-35px) scale(1.75);}
+}
+
+.piano-page .copy {
+	color: var(--text-3);
+	display: inline-block;
+	margin: 0 1em;
+	font-family: 'Baloo 2';
+	font-size: 14pt;
+}
+.piano-page .copy a {
+	color: inherit;
+	text-decoration: none;
+}
+.piano-page .copy a:hover {
+	text-decoration: underline;
+}
+
+.piano-page .content {
+	width: 100%;
+	flex-grow: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: row;
+}
+
+.piano-page .chat-sidebar {
+	background: var(--panel-2);
+	flex-basis: 0%;
+	transition: flex-basis 0.2s ease;
+}
+.piano-page .chat-sidebar.open {
+	flex-basis: 50%;
+}
+
+.piano-page .main-content {
+	min-width: 0;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: center;
+	flex-basis: 100%;
+}
+
+.piano-page .bar {
+	padding: 2rem;
+	display: flex;
+	width: 100%;
+	flex-direction: row;
+	justify-content: space-between;
+	opacity: 1;
+	transition: opacity 0.1s ease 0.2s, display 0 linear 0.3s;
+}
+
+.piano-page .info-row {
+	display: flex;
+	flex: 1;
+	width: 100%;
+	flex-direction: row;
+	justify-content: center;
+	align-items: flex-start;
+	position: relative;
+}
+
+.piano-page header.bar, .piano-page footer.bar {
+	padding: 0 0.5rem;
+}
+
+.piano-page > header.bar {
+	justify-content: flex-end;
+}
+
+.piano-page .bar>div {
+	flex: 1;
+	display: flex;
+	justify-content: center;
+	position: relative;
+}
+.piano-page .bar>div:first-child {
+	justify-content: flex-start;
+}
+.piano-page .bar>div:last-child {
+	justify-content: flex-end;
+}
+.piano-page .bar>div:first-child:last-child {
+	justify-content: center;
+}
+
+.piano-page .bar>div>div, .piano-page .bar>div {
+	display: inline-flex;
+	gap: 2px;
+}
+.piano-page .bar .tabs {
+	gap: 0px;
+}
+
+
+.piano-page .bar>div>div.staffs {
+	display: block;
+}
+
+.piano-page .bar>div>div.isRecording {
+	box-shadow: 0 0 0 2px var(--danger);
+	border-radius: 0.5rem;
+}
+.piano-page .bar>div>div.isPlaying {
+	box-shadow: 0 0 0 2px var(--palette-lavender);
+	border-radius: 0.5rem;
+}
+
+/* tabs */
+.piano-page .bar>div.tabs {
+	/* snap to top */
+	align-self: flex-start;
+}
+.piano-page .bar>.tabs button {
+	border: none;
+	background-color: var(--panel-2);
+	color: var(--text-2);
+	border-bottom-left-radius: .5rem;
+	border-bottom-right-radius: .5rem;
+	box-shadow: var(--shadow-sm);
+	/* font-family: 'Baloo 2'; */
+}
+.piano-page .bar>.tabs button+button {
+	box-shadow: var(--shadow-sm);
+}
+.piano-page .bar>.tabs button::before {
+	content: attr(data-user-dots);
+	position: absolute;
+	top: -.5rem;
+	left: 0;
+	right: 0;
+	font-weight: bold;
+}
+.piano-page .bar>.tabs button::after {
+	display: none;
+}
+.piano-page .bar>.tabs button:hover {
+	background-color: var(--bg-2);
+	color: var(--text);
+}
+.piano-page .bar>.tabs button.on {
+	background-color: var(--selection-bg);
+	color: var(--selection-text);
+	box-shadow: var(--shadow-sm);
+}
+.piano-page .bar>.tabs button .close {
+	position: absolute;
+	background: var(--panel-2);
+	bottom: -8px;
+	right: 0px;
+	height: 16px;
+	width: 16px;
+	line-height: 16px;
+	border-radius: 50%;
+	opacity: 0;
+}
+.piano-page .bar>.tabs button:hover .close {
+	opacity: 0.8;
+}
+.piano-page .bar>.tabs button .close:hover {
+	opacity: 1;
+}
+.piano-page .bar>.tabs button.notab {
+	background: none;
+	box-shadow: none;
+	padding-top: 0.5rem;
+}
+.piano-page .bar>.tabs button.notab:disabled {
+	cursor: not-allowed;
+}
+.piano-page .bar>.tabs button:first-child, .piano-page .bar>.tabs button:last-child {
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+/* other buttons */
+.piano-page .bar :is(button, select), .piano-page .bar.tool-bar label, .piano-page .bar .tool-bar label, .piano-page .bar .modal label, .piano-page .bar input[type=text] {
+	min-width: 3.5rem;
+	text-align: center;
+	text-align-last: center;
+	display: flex;
+	border: none;
+	cursor: pointer;
+	margin: 0;
+	padding: .6rem 1rem 0.4rem;
+	font-size: 110%;
+	-webkit-tap-highlight-color: transparent;
+	border-right-width: 0px;
+	position: relative;
+	background-color: var(--panel);
+	color: var(--text);
+	justify-content: center;
+	border-radius: 0;
+}
+.piano-page .bar :is(button, select, label):focus {
+	box-shadow: inset 0 0 0 2px var(--focus-ring);
+	outline: none;
+}
+.piano-page div.bar button:hover, .piano-page div.bar label:hover {
+	background-color: var(--bg-2);
+}
+.piano-page div.bar button:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+.piano-page div.bar button:disabled:hover {
+	background-color: var(--panel);
+}
+.piano-page header.bar button, .piano-page footer.bar :is(button, label), .piano-page footer.bar input[type=text] {
+	border-color: var(--control-border);
+	background: var(--instrument-panel);
+	color: var(--instrument-text-muted);
+}
+.piano-page header.bar button.on, .piano-page header.bar button.onon, .piano-page footer.bar button.on {
+	background: var(--selection-bg);
+	color: var(--selection-text);
+}
+.piano-page .bar button:first-child, .piano-page .bar label:first-child {
+	border-top-left-radius: .5rem;
+	border-bottom-left-radius: .5rem;
+}
+.piano-page .bar button:last-child, .piano-page .bar label:last-child {
+	border-top-right-radius: .5rem;
+	border-bottom-right-radius: .5rem;
+}
+.piano-page .bar label>button:first-child {
+	border-top-left-radius: inherit;
+	border-bottom-left-radius: inherit;
+}
+.piano-page .bar label>button:last-child {
+	border-top-right-radius: inherit;
+	border-bottom-right-radius: inherit;
+}
+.piano-page .bar button:active {
+	border-color: transparent;
+}
+.piano-page .bar button::after {
+	position: absolute;
+	top: -.6rem;
+	left: 0;
+	right: 0;
+}
+.piano-page .bar button.on::after {
+	content: '.';
+}
+.piano-page .bar button.onon::after {
+	content: '..';
+}
+.piano-page .bar button.ononon::after {
+	content: '...';
+}
+.piano-page .bar button.unknown::after {
+	content: '﹖';
+}
+.piano-page .bar button.none::after {
+	content: '_';
+}
+.piano-page .bar button.err::after {
+	content: '×';
+}
+
+.piano-page .bar.tool-bar :is(button, label) {
+	background-color: var(--panel);
+	border: 1px solid var(--line-strong);
+	box-shadow: 0 2px 5px var(--shadow-color);
+	color: var(--text);
+}
+.piano-page .bar.tool-bar :is(button, label):hover:not(:disabled) {
+	background-color: var(--bg-2);
+}
+.piano-page .bar.tool-bar button:is(.on, .onon, .ononon) {
+	background-color: var(--selection-bg);
+	border-color: var(--selection-border);
+	color: var(--selection-text);
+	box-shadow: inset 0 1px 3px var(--shadow-color);
+}
+.piano-page .bar.tool-bar :is(button, label):focus-visible {
+	outline: 2px solid var(--focus-ring);
+	outline-offset: 2px;
+}
+
+
+.piano-page .bar select {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+}
+.piano-page .bar select option {
+	font-size: 90%;
+}
+
+.piano-page .bar button .iconify, .piano-page .bar label .iconify {
+	font-size: 24px;
+	line-height: 28px;
+}
+
+
+.piano-page .volume-label > input.volume {
+	width: 0.01rem; /* safari will bug if 0 */
+	padding-left: 0.3rem;
+	transition: width 400ms ease-in-out, opacity 400ms ease-in-out;
+	opacity: 0;
+}
+.piano-page .volume-icon {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+}
+.piano-page .volume-label {
+	min-width: 0;
+}
+.piano-page .volume-label:hover > input.volume {
+	width: 4rem;
+	opacity: 1;
+}
+
+.piano-page .bar .user-icon {
+	display: block;
+	color: inherit;
+	transition: color .5s ease;
+	position: relative;
+	animation: letgo 0.1s ease 0s 1;
+	line-height: 0;
+}
+
+.piano-page .bar .user-avatar {
+	position: relative;
+	display: flex;
+}
+.piano-page .bar .user-avatar img {
+	background: var(--panel);
+	border-radius: 3px;
+}
+
+.piano-page .bar:hover .user-icon {
+	color: var(--color, var(--text-2)) !important;
+}
+
+.piano-page .bar .user-icon.active, .piano-page .bar .user-avatar.active {
+	color: var(--color, var(--accent)) !important;
+	animation: hit 0.12s ease 0s 1;
+}
+
+
+.piano-page .user-flags {
+	pointer-events: none;
+	display: block;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	font-size: 75%;
+}
+
+.piano-page .user-flags .flag {
+	position: absolute;
+	font-size: 110%;
+}
+
+/* bottom */
+.piano-page .user-flags .flag.self {
+	bottom: -6px;
+	left: 0;
+	right: 0;
+	width: 100%;
+}
+
+/* left side */
+.piano-page .user-flags .flag.mic, .piano-page .user-flags .flag.self-muted {
+	left: 3px;
+	top: 8px;
+	font-size: 120%;
+}
+/* right side */
+.piano-page .user-flags .flag.mod, .piano-page .user-flags .flag.muted {
+	position: absolute;
+	right: 3px;
+	top: 6px;
+	font-size: 125%;
+}
+.piano-page .user-flags .flag.mod {
+	top: 8px;
+	font-size: 110%;
+}
+
+
+@keyframes hit {
+	0%   { bottom: 0}
+	50%  { bottom: -3px}
+	100% { bottom: -1.5px}
+}
+
+@keyframes letgo {
+	0%   { bottom: -1.5px}
+	50%  { bottom: 1.5px}
+	100% { bottom: 0}
+}
+
+
+/*  ===============  keboard  =============== */
+
+
+/* Playback and the waterfall use the same color for each hand. */
+.piano-page .keyboard button[data-hand="L"] {
+	--piano-note: var(--piano-left);
+	--piano-note-edge: var(--piano-left);
+}
+.piano-page .keyboard button[data-hand="R"] {
+	--piano-note: var(--piano-right);
+}
+
+.piano-page .keyboard {
+	width: 100%;
+	position: relative;
+	flex-shrink: 0;
+	height: 0;
+	padding-bottom: 10%;
+	transition:
+		left .2s ease-in,
+		width .2s ease-in-out,
+		margin .2s ease-in-out .05s,
+		height .2s ease-in-out .1s,
+		padding .2s ease-in-out .15s;
+	left: 0rem;
+	overflow: visible;
+}
+.piano-page .keyboard>div {
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+}
+
+.piano-page .keyboard button {
+	min-width: 0;
+	border: 1px solid var(--key-edge);
+	color: transparent;
+	padding: 1rem 0;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	flex-direction: column;
+	justify-content: flex-end;
+	align-items: center;
+	outline: none;
+	transition: color 0s ease .2s;
+	user-select: none; /* prevent selection on android */
+}
+.piano-page .keyboard button[data-note="C4"] {
+	font-weight: bold;
+	font-size: 105%;
+}
+
+.piano-page .bottom-keys button {
+	border-left-width: .25px;
+	border-right-width: .75px;
+	height: 100%;
+	text-align: center;
+	background-color: var(--key-white);
+	flex: 1 0;
+	border-bottom-left-radius: 10% 2%;
+	border-bottom-right-radius: 10% 2%;
+	z-index: 1;
+	box-shadow: var(--key-shadow);
+}
+.piano-page .bottom-keys button.pressed {
+	background-color: var(--panel);
+	background-image: linear-gradient(0deg,
+		color-mix(in srgb, var(--piano-note) 65%, transparent),
+		color-mix(in srgb, var(--piano-note) 12%, transparent)
+	);
+	box-shadow: inset 0 -3px var(--piano-note-edge);
+	z-index: 2;
+}
+.piano-page .velocity .bottom-keys button.pressed {
+	background-image: linear-gradient(0deg,
+		color-mix(in srgb, var(--piano-note) 24%, transparent) var(--velocity-stop, 0%),
+		transparent var(--velocity-stop, 0%)
+	), linear-gradient(0deg,
+		color-mix(in srgb, var(--piano-note) 55%, transparent),
+		color-mix(in srgb, var(--piano-note) 12%, transparent)
+	);
+}
+
+.piano-page .letters .bottom-keys button {
+	color: var(--text-2);
+}
+.piano-page .letters .bottom-keys button.pressed {
+	color: var(--text);
+}
+
+.piano-page .letters button sub {
+	display: none;
+}
+.piano-page .letters.numbers button sub  {
+	display: inline;
+}
+
+
+.piano-page .top-keys button {
+	border-bottom-left-radius: 15% 3%;
+	border-bottom-right-radius: 15% 3%;
+	border: none;
+	height: 66%;
+	background-color: var(--key-black);
+	position: relative;
+	flex: 1 0;
+	box-shadow: var(--key-shadow);
+}
+.piano-page .top-keys button.pressed {
+	background-color: var(--key-black);
+	background-image: linear-gradient(180deg,
+		color-mix(in srgb, var(--piano-note) 40%, transparent),
+		color-mix(in srgb, var(--piano-note) 15%, transparent)
+	);
+	box-shadow: inset 0 -3px var(--piano-note);
+}
+.piano-page .velocity .top-keys button.pressed {
+	background-image: linear-gradient(0deg,
+		color-mix(in srgb, var(--piano-note) 24%, transparent) var(--velocity-stop, 0%),
+		transparent var(--velocity-stop, 0%)
+	), linear-gradient(180deg,
+		color-mix(in srgb, var(--piano-note) 40%, transparent),
+		color-mix(in srgb, var(--piano-note) 15%, transparent)
+	);
+}
+
+.piano-page .keyboard.velocity-1 :is(.bottom-keys, .top-keys) button.pressed {
+	clip-path: none;
+}
+.piano-page .keyboard.velocity-2 :is(.bottom-keys, .top-keys) button.pressed {
+	clip-path: polygon(0 0, 72% 0, 100% 10px, 100% 100%, 0 100%);
+}
+.piano-page .letters .top-keys button {
+	color: var(--instrument-text-muted);
+}
+.piano-page .letters .top-keys button.pressed {
+	color: var(--on-accent);
+}
+
+/* correct spacing https://www.mathpages.com/home/kmath043.htm)
+f=g=a=b=72156 units      c=d=e=74606 units  
+f#=g#=a#=72520 units     c#=d#=74235 units  
+F=G=A=B=126546 units     C=D=E=124096 units 
+*/
+.piano-page .top-keys button[data-note*="F"], .piano-page .top-keys button[data-note*="G"], .piano-page .top-keys button[data-note*="A"], .piano-page .top-keys button[data-note*="B"] {
+	flex: 72156;
+}
+.piano-page .top-keys button[data-note*="C"], .piano-page .top-keys button[data-note*="D"], .piano-page .top-keys button[data-note*="E"] {
+	flex: 74606;
+}
+.piano-page .top-keys button[data-note*="F#"], .piano-page .top-keys button[data-note*="G#"], .piano-page .top-keys button[data-note*="A#"] {
+	flex: 72520;
+}
+.piano-page .top-keys button[data-note*="C#"], .piano-page .top-keys button[data-note*="D#"] {
+	flex: 74235;
+}
+.piano-page .bottom-keys button[data-note*="F"], .piano-page .bottom-keys button[data-note*="G"], .piano-page .bottom-keys button[data-note*="A"], .piano-page .bottom-keys button[data-note*="B"] {
+	flex: 126546;
+}
+.piano-page .bottom-keys button[data-note*="C"], .piano-page .bottom-keys button[data-note*="D"], .piano-page .bottom-keys button[data-note*="E"] {
+	flex: 124096;
+}
+
+.piano-page .top-keys button:first-child {
+	/* (B+A) - (b+a#)  = (126546+126546) - (72156 + 72520 ) */
+	flex: 108416;
+}
+.piano-page .top-keys button:last-child {
+	/* C */
+	flex: 124096;
+}
+
+/* unhide correct accidentals keys */
+.piano-page .top-keys button[data-note*="#"] {
+	z-index: 3;
+}
+
+/* =============== */
+
+.piano-page div.hint {
+	width: 31.75rem;
+	display: flex;
+	flex-direction: row;
+	justify-content: center !important;
+	margin-left: 69rem;
+	position: absolute;
+	top: 0;
+	pointer-events: none; /* click through */
+}
+.piano-page .hint button {
+	background-color: transparent;
+	color: var(--text);
+	height: 1.75rem;
+	border: none;
+	border-radius: 50%;
+	font-weight: bold;
+	cursor: default;
+	z-index: 3;
+	position: relative;
+	top: 2rem;
+	display: flex;
+	justify-content: center;
+	font-size: 12pt;
+}
+.piano-page .hint button[data-note*="#"] {
+	color: var(--instrument-text-muted);
+	top: 0.5rem;
+}
+.piano-page .hint button[data-note*="F"], .piano-page .hint button[data-note*="G"], .piano-page .hint button[data-note*="A"], .piano-page .hint button[data-note*="B"] {
+	flex: 72156;
+}
+.piano-page .hint button[data-note*="C"], .piano-page .hint button[data-note*="D"], .piano-page .hint button[data-note*="E"] {
+	flex: 74606;
+}
+.piano-page .hint button[data-note*="F#"], .piano-page .hint button[data-note*="G#"], .piano-page .hint button[data-note*="A#"] {
+	flex: 72520;
+}
+.piano-page .hint button[data-note*="C#"], .piano-page .hint button[data-note*="D#"] {
+	flex: 74235;
+}
+
+.piano-page .hint[style="left: 63rem;"] button:nth-child(14), .piano-page .hint[style="left: 63rem;"] button:nth-child(15), .piano-page .hint[style="left: 63rem;"] button:nth-child(16), .piano-page .hint[style="left: 63rem;"] button:nth-child(17), .piano-page .hint[style="left: 63rem;"] button:nth-child(18) {
+	visibility: hidden;
+}
+
+/* =============== staff =============== */
+.piano-page .staff-paper {
+	--staff-paper-background: var(--score-paper);
+	margin: 1.5em 1.5em 1.5em 1.5em;
+	padding: 1.5em 1.5em 1.5em 1em;
+	border-radius: 5px;
+	background-color: var(--staff-paper-background);
+	border: 1px solid var(--line);
+	box-shadow: 0 3px 10px var(--shadow-color);
+	position: relative;
+}
+.piano-page .staff-paper[hidden] {
+	display: none;
+}
+.piano-page .piano-staff {
+	display: block;
+	width: 280px;
+	max-width: 100%;
+	height: auto;
+}
+.piano-page .staffs {
+	font-family: Bravura;
+	position: relative;
+	font-size: 3.25rem;
+	bottom: .75em;
+	margin-bottom: -0em;
+	display: flex;
+	flex-direction: column;
+}
+.piano-page .staff {
+	margin-bottom: -2.5em;
+	position: relative;
+}
+.piano-page .staff>span:first-child {
+	position: relative;
+	left: 0;
+	display: block;
+	color: var(--score-line);
+	opacity: 1;
+}
+.piano-page .staff.treble>span>i:first-child { /* treble clef */
+	font-style: normal;
+	color: var(--score-ink);
+	position: relative;
+	top: -.25em;
+}
+.piano-page .staff.bass>span>i:first-child { /* bass clef */
+	color: var(--score-ink);
+	font-style: normal;
+	position: relative;
+	top: -.75em;
+}
+.piano-page .staff>span {
+	position: absolute;
+	z-index: 1;
+	opacity: 0;
+	transition: opacity 0.25s ease-in;
+}
+/* one half tone is 1/8em */
+.piano-page .staff>span[data-note="C2"]::before, .piano-page .staff>span[data-note="C#2"]::before, .piano-page .staff>span[data-note="D2"]::before, .piano-page .staff>span[data-note="D#2"]::before, .piano-page .staff>span[data-note="D2"]::before, .piano-page .staff>span[data-note="E2"]::before, .piano-page .staff>span[data-note="C4"]::before, .piano-page .staff>span[data-note="C#4"]::before, .piano-page .staff>span[data-note="A5"]::before, .piano-page .staff>span[data-note="A#5"]::before, .piano-page .staff>span[data-note="B5"]::before, .piano-page .staff>span[data-note="C6"]::before { /* help line */
+	content: '𝄖';
+	position: absolute;
+	top: calc(.125em * 4);
+	right: -0em;
+	color: var(--score-line);
+	z-index: -1;
+}
+.piano-page .staff>span[data-note="B5"]::before { /* touching help line below */
+	top: calc(.125em * 5);
+	z-index: -1;
+}
+.piano-page .staff>span[data-note="D2"]::before, .piano-page .staff>span[data-note="D#2"]::before { /* touching help line above */
+	top: calc(.125em * 3);
+	z-index: -1;
+}
+.piano-page .staff>span[data-note="C6"]::after { /* another help line below to fill space */
+	content: '𝄖';
+	position: absolute;
+	top: calc(.125em * 6);
+	right: -0em;
+	color: var(--score-line);
+}
+.piano-page .staff>span[data-note="C2"]::after, .piano-page .staff>span[data-note="C#2"]::after { /* another help line above to fill space */
+	content: '𝄖';
+	position: absolute;
+	top: calc(.125em * 2);
+	right: -0em;
+	color: var(--score-line);
+}
+
+.piano-page .staff>span.pressed {
+	position: absolute;
+	opacity: 1;
+	transition: none;
+}
+
+.piano-page .chord-info {
+	position: absolute;
+	right: -250px;
+	top: 0;
+	bottom: 0;
+	padding: 0.5em;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	font-size: 175%;
+	width: 250px;
+	pointer-events: none;
+}
+.piano-page .chord-info>* {
+	opacity: 1;
+	transition: none;
+}
+.piano-page .chord-info>.fade {
+	opacity: 0;
+	transition: opacity 0.2s ease 0.1s;
+}
+
+
+/* ============== cinema mode ============== */
+
+.piano-page .cinema-bar {
+	display: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	text-align: right;
+}
+.piano-page .cinema .cinema-bar {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+}
+.piano-page .cinema-bar button {
+	width: 2.25rem;
+	height: 2.25rem;
+	border-radius: 50%;
+	font-size: 1.5rem;
+	background: var(--panel-2);
+	color: var(--text);
+	border: none;
+	margin: .5rem;
+	cursor: pointer;
+	transition: opacity 0.2s;
+	opacity: .5;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.piano-page .cinema-bar button:hover {
+	opacity: 1;
+}
+.piano-page .idle .cinema-bar button {
+	opacity: 0;
+}
+
+.piano-page.cinema {
+	background-color: var(--instrument-bg);
+	background-image: none;
+	transition: background-color 0.5s ease;
+}
+
+.piano-page.cinema.idle * {
+	cursor: none;
+}
+
+.piano-page .cinema .bar, .piano-page .cinema .staff-paper {
+	transition-delay: 0s;
+	opacity: 0;
+	display: none;
+}
+.piano-page .cinema .keyboard {
+	width: 100%;
+	left: 0 !important; /* to disable transposition in cinema mode */
+}
+.piano-page .cinema .rotated .keyboard {
+	width: 100vh;
+}
+.piano-page .cinema .keyboard button {
+	transition-delay: 0s;
+	color: transparent;
+	font-size: 0;
+	box-shadow: none;
+}
+.piano-page .cinema .top-keys button {
+	background: var(--key-black);
+}
+.piano-page .cinema .top-keys button.pressed, .piano-page .effects-enabled .top-keys button.pressed {
+	background-color: var(--key-black);
+	box-shadow: 0px 0px 26px 3px color-mix(in srgb, var(--piano-note) 25%, transparent);
+	background-image: linear-gradient(180deg,
+		color-mix(in srgb, var(--piano-note) 40%, transparent) 0%,
+		color-mix(in srgb, var(--piano-note) 15%, transparent) 100%
+	);
+}
+
+.piano-page .cinema .bottom-keys button {
+	background: var(--key-white);
+}
+.piano-page .cinema .bottom-keys button.pressed, .piano-page .effects-enabled .bottom-keys button.pressed {
+	background-color: var(--key-white);
+	z-index: 2;
+	box-shadow: 0px 0px 26px 3px color-mix(in srgb, var(--piano-note) 25%, transparent);
+	background-image: linear-gradient(0deg,
+		color-mix(in srgb, var(--piano-note) 55%, transparent) 0%,
+		color-mix(in srgb, var(--piano-note) 12%, transparent) 100%
+	);
+}
+.piano-page .background {
+	opacity: 0;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background-color: var(--instrument-bg);
+	transition: opacity 2s ease 0s;
+}
+.piano-page .cinema .background {
+	opacity: 1;
+	transition: opacity 2s ease 1.5s;
+}
+.piano-page > .background {
+	opacity: 1;
+	pointer-events: none;
+	z-index: 0;
+}
+.piano-page > .content {
+	position: relative;
+	z-index: 1;
+}
+.piano-page .staff-paper {
+	z-index: 3;
+}
+.piano-page .background .smoke {
+	opacity: .8066;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	background-image: var(--piano-smoke, url('/images/smoke_blur.webp'));
+	background-position: center center;
+	background-repeat: repeat;
+	background-size: contain;
+	animation-iteration-count: infinite;
+	animation-direction: alternate;
+}
+.piano-page .background .smoke:nth-child(1) {
+	background-image: var(--piano-smoke-layer, url('/images/smoke_layer1_blur.webp'));
+	animation: flow-1 38s ease-in-out -10s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(2) {
+	background-image: var(--piano-smoke-layer, url('/images/smoke_layer1_blur.webp'));
+	transform: scale(1, -1);	
+	animation: flow-2 33s ease-in-out -9s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(3) {
+	background-image: var(--piano-smoke-layer, url('/images/smoke_layer1_blur.webp'));
+	transform: scale(-1, 1);
+	animation: flow-3 38s ease-in-out -8s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(4) {
+	background-image: var(--piano-smoke-layer, url('/images/smoke_layer1_blur.webp'));
+	transform: scale(-1, -1);
+	animation: flow-4 31s ease-in-out -2s infinite alternate;
+}
+
+.piano-page .background .smoke:nth-child(5) {
+	opacity: 0.05;
+	animation: flow-1 37s ease-in-out -30s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(6) {
+	opacity: 0.05;
+	transform: scale(1, -1);	
+	animation: flow-2 33s ease-in-out -29s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(7) {
+	opacity: 0.05;
+	transform: scale(-1, 1);
+	animation: flow-3 37s ease-in-out -28s infinite alternate;
+}
+.piano-page .background .smoke:nth-child(8) {
+	opacity: 0.05;
+	transform: scale(-1, -1);
+	animation: flow-4 30s ease-in-out -27s infinite alternate;
+}
+
+@keyframes flow-1 {
+	from { transform: translate3d(-12%, 8%, 0) scale(1.25); }
+	to { transform: translate3d(12%, -8%, 0) scale(1.25); }
+}
+@keyframes flow-2 {
+	from { transform: translate3d(-10%, -10%, 0) scale(1.25, -1.25); }
+	to { transform: translate3d(10%, 10%, 0) scale(1.25, -1.25); }
+}
+@keyframes flow-3 {
+	from { transform: translate3d(12%, -10%, 0) scale(-1.25, 1.25); }
+	to { transform: translate3d(-8%, 8%, 0) scale(-1.25, 1.25); }
+}
+@keyframes flow-4 {
+	from { transform: translate3d(-8%, -12%, 0) scale(-1.25, -1.25); }
+	to { transform: translate3d(12%, 10%, 0) scale(-1.25, -1.25); }
+}
+
+
+
+
+/* range input  */
+
+/* webkit */
+.piano-page input[type=range]{
+	background: transparent;
+	-webkit-appearance: none;
+}
+
+.piano-page input[type=range]::-webkit-slider-runnable-track {
+	width: 100%;
+	height: 5px;
+	background: var(--line-strong);
+	border: none;
+	border-radius: 3px;
+}
+
+.piano-page input[type=range]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	border: none;
+	height: 12px;
+	width: 12px;
+	border-radius: 50%;
+	background: var(--accent-2);
+	margin-top: -4px;
+}
+
+.piano-page input[type=range]:focus {
+	outline: none;
+}
+
+/* mozilla */
+.piano-page input[type=range]{
+	width: 100%;
+}
+
+.piano-page input[type=range]::-moz-range-track {
+	width: 100%;
+	height: 5px;
+	background: var(--line-strong);
+	border: none;
+	border-radius: 3px;
+}
+
+.piano-page input[type=range]::-moz-range-thumb {
+	border: none;
+	height: 12px;
+	width: 12px;
+	border-radius: 50%;
+	background: var(--accent-2);
+}
+
+/* IE (10+) a Edge */
+.piano-page input[type=range]::-ms-track {
+	width: 100%;
+	height: 5px;
+	background: transparent;
+	border-color: transparent;
+	border-width: 6px 0;
+	color: transparent;
+}
+
+.piano-page input[type=range]::-ms-fill-lower, .piano-page input[type=range]::-ms-fill-upper {
+	background: var(--line-strong);
+	border-radius: 10px;
+}
+
+.piano-page input[type=range]::-ms-thumb {
+	border: none;
+	height: 12px;
+	width: 12px;
+	border-radius: 50%;
+	background: var(--accent-2);
+	margin-top: 0px!important;
+}
+
+
+/* ================= Piano roll ================= */
+
+.piano-page .pianoroll.pianoroll {
+	display: none;
+}
+.piano-page .cinema .pianoroll, .piano-page .effects-enabled .pianoroll, .piano-page .velocity .pianoroll {
+	display: flex;
+	flex-direction: row;
+	pointer-events: none;
+}
+.piano-page .pianoroll>div {
+	position: relative;
+}
+/* columns */
+.piano-page .pianoroll>div[data-note*="F"], .piano-page .pianoroll>div[data-note*="G"], .piano-page .pianoroll>div[data-note*="A"], .piano-page .pianoroll>div[data-note*="B"] {
+	flex: 72156;
+}
+.piano-page .pianoroll>div[data-note*="C"], .piano-page .pianoroll>div[data-note*="D"], .piano-page .pianoroll>div[data-note*="E"] {
+	flex: 74606;
+}
+.piano-page .pianoroll>div[data-note*="F#"], .piano-page .pianoroll>div[data-note*="G#"], .piano-page .pianoroll>div[data-note*="A#"] {
+	flex: 72520;
+}
+.piano-page .pianoroll>div[data-note*="C#"], .piano-page .pianoroll>div[data-note*="D#"] {
+	flex: 74235;
+}
+.piano-page .pianoroll>div:first-child {
+	flex: 108416;
+}
+.piano-page .pianoroll>div:last-child {
+	flex: 124096;
+}
+
+/* flying rectangle */
+.piano-page .pianoroll>div>div {
+	width: 100%;
+	min-width: 1px;
+	position: absolute;
+	bottom: 0;
+	height: 100vh;
+	border-radius: 3px;
+}
+.piano-page .pianoroll>div>div.front {
+	z-index: 2;
+	box-sizing: border-box;
+	background-color: var(--piano-note);
+	border: 1px solid var(--piano-note);
+}
+.piano-page .pianoroll>div>div.back {
+	z-index: 1;
+	background-color: transparent;
+	box-shadow: 0 0 8px color-mix(in srgb, var(--piano-note) 22%, transparent);
+}
+.piano-page .pianoroll>div>div.pressed {
+	animation: grow-up 5s linear 0s 1 normal none running;
+}
+.piano-page .pianoroll>div>div.released {
+	translate: 0 -100vh;
+	animation:
+		grow-up 5s linear 0s 1 normal none paused,
+		rise-up 5s linear 0s 1 normal none running;
+}
+
+@keyframes grow-up {
+	0% { height: 0vh; }
+	100% { height: 100vh; }
+}
+
+@keyframes rise-up {
+	0% { translate: 0 0; }
+	100% { translate: 0 -100vh; }
+}
+
+/* modals */
+
+.piano-page .modal-mask {
+	position: fixed;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	z-index: 100;
+	background: var(--overlay);
+}
+.piano-page .modal {
+	display: flex;
+	border-radius: 9px;
+	box-shadow: var(--shadow-lg);
+	padding: 3em 4em;
+	background: var(--panel);
+	color: var(--text);
+	backdrop-filter: blur(10px);
+	border: 1px solid var(--line);
+}
+.piano-page .modal-content {
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	flex-grow: 1;
+	border-radius: 9px;
+	box-shadow: 0 0 0 1px var(--line);
+}
+
+.piano-page div.modal label {
+	color: var(--text);
+	background: var(--panel-2);
+}
+.piano-page div.modal input[type=text] {
+	background: var(--panel);
+	color: var(--text);
+}
+.piano-page div.modal input:focus, .piano-page div.modal button:focus  {
+	box-shadow: inset 0 0 0 2px var(--focus-ring);
+	outline: none;
+}
+.piano-page div.modal input::selection {
+	background: var(--selection-bg);
+	color: var(--text);
+}
+.piano-page div.modal button {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+.piano-page div.modal button:hover {
+	background: var(--accent-hover);
+	color: var(--on-accent);
+}
+
+
+/* mobile devices - disable all box shadows for better responxivity  */
+.piano-page .mobile *{
+	box-shadow: none !important;
+}
+
+@media screen and (max-height: 500px), (max-width: 500px) {
+	.piano-page .smoke:nth-child(even) { /* reduce gpu stress */
+		display: none;
+	}
+	.piano-page html {
+		font-size: 100%;
+	}
+	.piano-page body {
+		margin-bottom: 0;
+	}
+	.piano-page .bar:first-child {
+		margin-top: 0;
+		padding-top: 0;
+		padding-bottom: 1rem;
+	}
+	.piano-page .bar:last-child {
+		margin-bottom: 0;
+		padding-bottom: 0;
+	}
+	.piano-page .bar.tool-bar {
+		z-index: 2;
+	}
+	.piano-page .keyboard {
+		z-index: 5;
+	}
+	/* too much shadows is reducing performance on mobile devices */
+	.piano-page .bottom-keys button, .piano-page .top-keys button {
+		box-shadow: none;
+	}
+	.piano-page .staff-paper {
+		margin: 0;
+		padding: 0.5em 1em 0.5em 0.5em;
+	}
+	.piano-page .staffs {
+		font-size: 2em;
+		flex-direction: row-reverse;
+	}
+	.piano-page h1#logo {
+		font-size: 1.5em;
+	}
+	.piano-page .bar :is(button,select,input), .piano-page .bar input[type=text], .piano-page .bar .modal label, .piano-page .bar.tool-bar label { /* voluma and instrument changer wrapper */
+		padding: 0.2rem;
+	}
+	.piano-page .bar label.volume-label { /* volume wrapper */
+		padding: 0.2rem;
+		min-width: 54px;
+	}
+	.piano-page .bar button .iconify, .piano-page .bar select .iconify, .piano-page .bar label .iconify {
+		font-size: 22px;
+		line-height: 26px;
+	}
+	.piano-page header.bar button:after {
+		top: 0.4rem;
+		left: 36px;
+	}
+	.piano-page .bar, .piano-page header.bar, .piano-page footer.bar {
+		height: auto;
+		padding: 0;
+	}
+	.piano-page .reacter {
+		flex-direction: row-reverse;
+		padding: 6px 0 6px;
+	}
+	.piano-page .reacter span.sep {
+		height: initial;
+		border-bottom: initial;
+		width: 0;
+		border-left: 1px solid var(--line);
+	}
+	.piano-page .reacter span {
+		display: flex;
+    justify-content: center;
+    align-items: center;
+	}
+	.piano-page .copy {
+		font-size: 75%;
+	}
+}
+
+@media(hover: none) {
+	.piano-page [data-tippy-root] {
+		display: none;
+	}
+}
+
+
+/* framed */
+.piano-page .framed {
+	--background: var(--accent-2);
+	background-color: transparent;
+	touch-action: manipulation; /* disables double tap to zoom */
+}
+
+.piano-page .framed #recorder-app, .piano-page .framed #tabs, .piano-page .framed #toggle-velocity, .piano-page .framed #fullscreen {
+	display: none;
+}
+
+.piano-page .framed #instrument-app label {
+	display: flex;
+	flex-direction: row-reverse;
+}
+.piano-page .framed input.volume {
+	width: 4rem;
+	opacity: 1;
+}
+.piano-page input.volume:disabled {
+	display: none;
+}
+
+.piano-page .framed .back-background {
+	position: absolute;
+	top: 15px;
+	width: 100%;
+	height: 100%;
+	background-color: var(--accent-2);
+}
+
+.piano-page .framed header, .piano-page .framed footer {
+	box-shadow: none;
+	background-color: transparent;
+	padding: 0 0.5rem;
+}
+.piano-page .framed .staff-paper {
+	background-color: var(--lavender-soft);
+	z-index: 5;
+	border-top: 2px dotted var(--accent-2);
+	margin-bottom: -3px;
+}
+.piano-page .framed .chord-info {
+	font-size: 125%;
+	color: var(--lavender-soft);
+}
+.piano-page .framed header.bar button, .piano-page .framed footer.bar :is(button, label) {
+	color: var(--instrument-text);
+	background-color: var(--text);
+	position: relative;
+}
+.piano-page .framed header {
+	position: absolute;
+	top: 20px;
+	z-index: 2;
+}
+.piano-page .framed footer {
+	position: absolute;
+	bottom: 6px;
+}
+.piano-page .framed .content {
+	position: absolute;
+	top: 0px;
+}
+.piano-page .framed.unfocused {
+	filter: brightness(0.9) grayscale(.1) blur(0px);
+}
+
+/* The free piano shares a page with Cover Studio, whose .bar rules are unrelated. */
+.piano-page:not(.has-song) > .background {
+  display: none;
+}
+.piano-page:not(.has-song) .main-content {
+  min-height: 0;
+  flex: 1;
+}
+.piano-page:not(.has-song) .info-row {
+  min-height: 0;
+}
+.piano-page:not(.has-song) .keyboard {
+  margin-bottom: 0;
+}
+.piano-page:not(.has-song) .bar.tool-bar {
+  flex: 0 0 80px;
+  width: 100%;
+  max-width: none;
+  height: 80px;
+  min-height: 80px;
+  overflow: visible;
+  padding: 8px 32px;
+  background: var(--panel-2);
+}
+.piano-page:not(.has-song) .bar.tool-bar > div {
+  height: auto;
+  background: transparent;
+}
+@media (max-width: 899px) {
+  .piano-page:not(.has-song) .bar.tool-bar {
+    flex-basis: auto;
+    height: auto;
+    min-height: 64px;
+    padding: 8px;
+  }
+}

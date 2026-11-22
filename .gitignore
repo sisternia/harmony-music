@@ -1,0 +1,56 @@
+.venv*
+.transkun/
+.tsumugi/
+.vscode
+.idea/
+Dataset/
+wandb/
+runs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment / Secrets
+.env
+
+# Model Checkpoints & Logs
+*.pt
+*.pth
+*.ckpt
+logs/
+checkpoints/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# piano_ar
+data/piano_ar/
+data/piano_cover*/
+outputs/
+
+# WireGuard configs (private keys)
+*.conf
+
+local/
+
+data/metadata/
+
+data/alignments/
+data/piano_score/
+data/sheetsage/
+data/audio_frames/
+
+# 公開用に書き出した重み (piano_ar.export / piano_cover.export) と UI のプロジェクト
+pretrained/
+pretrained_v2/
+projects/
+music-backend/apps/cover_studio/static/
+music-frontend/studio-web/node_modules/
+music-frontend/studio-web/dist/
+
+# Repository-wide rules; backend and frontend also have scoped .gitignore files.

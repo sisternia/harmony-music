@@ -1,0 +1,41 @@
+.navbar-click-feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  contain: strict;
+}
+.navbar-click-feedback__clip {
+  position: absolute;
+  overflow: hidden;
+}
+.navbar-click-feedback__ripple {
+  position: absolute;
+  border: 1px solid var(--accent-2);
+  border-radius: 50%;
+  background: var(--accent-2);
+  opacity: 0;
+  animation: navbar-ripple 540ms cubic-bezier(.2, .65, .3, 1) both;
+}
+.navbar-click-feedback__note {
+  position: absolute;
+  display: block;
+  opacity: 0;
+  animation: navbar-note-burst 650ms cubic-bezier(.16, .65, .3, 1) both;
+}
+@keyframes navbar-ripple {
+  0% { opacity: .16; transform: translate(-50%, -50%) scale(0); }
+  60% { opacity: .09; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes navbar-note-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(.35) rotate(0deg); }
+  18% { opacity: .85; }
+  100% { opacity: 0; transform: translate(var(--note-x), var(--note-y)) scale(1.05) rotate(var(--note-rotation)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navbar-click-feedback { display: none; }
+  .navbar-click-feedback__ripple, .navbar-click-feedback__note { animation: none; }
+}

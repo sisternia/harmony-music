@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 120
+
+[project]
+name = "piano-cover-generation"
+version = "0.0.1"
+description = "piano cover generation model"
+dependencies = []
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "apps"}
+
+[tool.setuptools.packages.find]
+where = ["apps"]
+include = ["cover_studio*", "piano_ar*", "piano_cover*", "piano_perf2score*", "piano_score*"]

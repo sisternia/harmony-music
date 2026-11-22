@@ -1,0 +1,10 @@
+# Django accounts service. Install separately from the Cover Studio model stack.
+Django>=5.2,<7
+djangorestframework>=3.14
+djangorestframework-simplejwt>=5.3
+django-cors-headers>=4.3
+django-filter>=24.0
+drf-yasg>=1.21
+python-decouple>=3.8
+dnspython>=2.6
+psycopg2-binary>=2.9

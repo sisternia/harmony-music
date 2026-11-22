@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Harmony Auralis",
+    "slug": "music-frontend",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/images/icon.png",
+    "scheme": "musicfrontend",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Connect to the Cover Studio server running on your computer.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f6f2f6",
+        "foregroundImage": "./public/images/android-icon-foreground.png",
+        "monochromeImage": "./public/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "name": "Harmony Auralis",
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./public/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./public/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#fbf9fb"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
