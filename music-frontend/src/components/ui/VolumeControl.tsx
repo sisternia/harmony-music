@@ -12,6 +12,7 @@ type Props = {
   sliderLabel?: string;
   className?: string;
   buttonClassName?: string;
+  iconColor?: string;
   onOpen?: () => void;
 };
 
@@ -23,6 +24,7 @@ export default function VolumeControl({
   sliderLabel = 'Âm lượng',
   className = '',
   buttonClassName = '',
+  iconColor = colors.text,
   onOpen,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -109,7 +111,7 @@ export default function VolumeControl({
       >
         <Icon
           name={level === 0 ? 'volumeMute' : level < 0.34 ? 'volumeLow' : level < 0.67 ? 'volumeMedium' : 'volumeHigh'}
-          color={colors.text}
+          color={iconColor}
           size={21}
         />
       </button>

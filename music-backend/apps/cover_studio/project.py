@@ -83,7 +83,16 @@ class Project:
 
     # ------------------------------------------------------------ 作る・消す
     @classmethod
-    def create(cls, root: Path, title: str, audio: Path | None = None, midi: Path | None = None) -> Project:
+    def create(
+        cls,
+        root: Path,
+        title: str,
+        audio: Path | None = None,
+        midi: Path | None = None,
+        *,
+        youtube_url: str | None = None,
+        youtube_id: str | None = None,
+    ) -> Project:
         root = Path(root).resolve()
         base = safe_name(title)
         d, n = root / base, 2
@@ -96,6 +105,8 @@ class Project:
             "created": now(),
             "audio": None,
             "audio_sha1": None,
+            "youtube_url": youtube_url,
+            "youtube_id": youtube_id,
             "source": None,  # {"origin": "tsumugi" | "upload", "created": ...}
             "transcribe": None,  # {"state": "queued" | "running" | "done" | "error", "error": ...}
             "next_take": 1,

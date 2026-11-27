@@ -40,6 +40,50 @@ python -m cover_studio
 Cover Studio stays at `http://127.0.0.1:8100`. It does not start the accounts service. Run each service in its own terminal.
 The upload form at `http://localhost:8081` accepts audio or MIDI files up to 100 MB, or a single YouTube video up to 20 minutes. YouTube import uses yt-dlp, a JavaScript runtime (Node.js 22+ or Deno), and FFmpeg/FFprobe. The bundled FFmpeg tools in `.tsumugi/ffmpeg-shared/bin` are used when available; otherwise install both on `PATH`. The backend needs internet access to download a YouTube video.
 
+## Songscription: lyrics, ad-libs and scat
+
+**Qwen3-ASR 1.7B** (`qwen3-asr-1.7b`) is the default recognizer. **Whisper Large v3**
+remains an alternative. The frontend reads the model list from the backend;
+restart the backend to refresh the creation dialog. Legacy model selections map
+to the new default.
+
+The Modal lyrics worker runs Qwen recognition and Whisper word alignment on its
+GPU. Deploy the worker with
+`modal deploy music-backend/apps/cover_studio/modal_app.py` after code changes.
+The lyrics image includes `qwen-asr==0.0.6`; the piano-cover image is separate.
+With `USE_MODAL_GPU=true`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` in
+`music-backend/.env`, Songscription runs separation and recognition on Modal.
+Configuration or remote errors stop the job with a message; they never start a
+local GPU fallback. Only the lightweight client and audio/file handling run locally.
+For local recognition, install the lyrics dependencies in a dedicated model
+environment. Model weights download on first use. Selecting Qwen without its
+runtime reports an error instead of silently substituting another recognizer.
+Whisper alignment estimates word timings, including Vietnamese; when alignment
+is unavailable, recognized text keeps segment timing.
+
+Vocal recovery reuses the loaded recognizer on acoustic gaps and suspect covered
+spans. It does not request a second transcription of every recognized line. The
+recovery pass can compare the vocal stem with the original mix, retains repeated
+syllables, and marks uncertain additions for review. Diagnostics report recovery
+results and failures. Additional streams represent simultaneous event lanes;
+they do not establish singer identities or imply isolated backing recordings.
+Songscription does not use Gemini or require a transcription API key.
+
+Post-processing preserves recognized repetitions and foreign-script text rather
+than shortening them into a readable summary. Cross-pass matching accounts for
+each occurrence so repeated phrases survive without duplicating the same
+observation. Automatic reference lyrics do not replace recognized ad-libs.
+Re-run extraction on an existing song to
+apply these changes; saved transcripts are not rewritten automatically. No model
+guarantees complete scat or ad-lib transcription: compare against manually labeled
+audio and measure omissions separately from overall word error rate.
+
+Regression checks (from the repository root, using the Cover Studio environment):
+
+```powershell
+python -c "import sys, unittest; sys.path.insert(0, 'music-backend/apps'); suite = unittest.TestSuite(unittest.defaultTestLoader.discover('music-backend/tests', pattern=name) for name in ('test_lyrics_transcription.py', 'test_vocal_preservation.py', 'test_vocal_recovery.py', 'test_qwen_songscription.py')); result = unittest.TextTestRunner().run(suite); sys.exit(not result.wasSuccessful())"
+```
+
 ## Check accounts
 
 ```powershell

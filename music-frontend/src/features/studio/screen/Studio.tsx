@@ -10,9 +10,11 @@ import { PianoRoll } from "../../../components/piano/PianoRoll";
 import { PlayerBar, usePlayerState } from "../../../components/piano/PlayerBar";
 import { ScoreViewer } from "../../../components/piano/ScoreViewer";
 import { TakeCard, TakeDetail } from "../../../components/studio/Takes";
+import { SmartMidiRepair } from "../components/SmartMidiRepair";
 import { progressText, useT } from "../../../i18n";
 import { formatTime } from "../utils/params";
 import { downloadCoverWav, getPlayer, type Player } from "../utils/player";
+import "../styles/studio-custom.css";
 
 // 「作る」欄の設定は曲をまたいで同じものを使う (別の曲へ移っても、変えた設定のまま続けられる)
 const DRAFT_KEY = "cover-studio:draft";
@@ -82,8 +84,12 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
 
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "favorite">("all");
-  const [showSource, setShowSource] = useState(true);
-  const [centerView, setCenterView] = useState<"piano" | "lyrics">("piano");
+  const [showSource, setShowSource] = useState(false);
+  const [centerView, setCenterView] = useState<"piano" | "repair" | "lyrics">("piano");
+  const [createOpen, setCreateOpen] = useState<boolean | null>(null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const midiUploadRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<Tab>("play");
   // 携帯で巻物をたたむかどうか (広い画面では styles.css がボタンごと隠す)
   const [rollOpen, setRollOpen] = useState(true);
@@ -106,27 +112,36 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
   // 楽譜を開いているテイク
   const [scoreOpen, setScoreOpen] = useState<string | null>(null);
 
-  const takes = data?.takes ?? [];
-  const doneTakes = takes.filter((t) => t.state === "done");
-  const shown = filter === "favorite" ? takes.filter((t) => t.favorite) : takes;
-  const selectedTake = takes.find((t) => t.id === selected) ?? null;
-
-  // まだ何も選んでいなければ、いちばん新しい完成したテイク
   useEffect(() => {
-    if ((!selected || !takes.some((t) => t.id === selected)) && doneTakes.length) setSelected(doneTakes[0].id);
-  }, [selected, takes, doneTakes]);
+    if (!moreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [moreMenuOpen]);
+
+  const takes = useMemo(() => data?.takes ?? [], [data?.takes]);
+  const doneTakes = useMemo(() => takes.filter((t) => t.state === "done"), [takes]);
+  const showCreatePanel = createOpen ?? takes.length === 0;
+  const shown = filter === "favorite" ? takes.filter((t) => t.favorite) : takes;
+  const effectiveSelected =
+    selected && takes.some((t) => t.id === selected) ? selected : (doneTakes[0]?.id ?? null);
+  const selectedTake = takes.find((t) => t.id === effectiveSelected) ?? null;
+  const selectedState = selectedTake?.state;
 
   const takeView = useQuery({
-    queryKey: ["take-view", pid, selected],
-    queryFn: () => api.takeView(pid, selected!),
-    enabled: selectedTake?.state === "done",
+    queryKey: ["take-view", pid, effectiveSelected],
+    queryFn: () => api.takeView(pid, effectiveSelected!),
+    enabled: selectedState === "done",
     staleTime: Infinity,
   });
 
   useEffect(() => {
+    if (centerView === "repair") return;
     if (takeView.data) player.setNotes(takeView.data.notes);
-    else if (selectedTake && selectedTake.state !== "done") player.setNotes([]);
-  }, [takeView.data, selectedTake?.state, player]);
+    else if (selectedState && selectedState !== "done") player.setNotes([]);
+  }, [centerView, takeView.data, selectedState, player]);
 
   useEffect(() => {
     void player.setOriginal(data?.audio ? urls.audio(pid) : null);
@@ -198,12 +213,11 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
     });
   const reuse = (take: Take) => {
     setDraft({ ...draft, params: { ...config.defaults, ...take.params }, model: take.model.id, seed: take.seed });
-    // 携帯では「作る」が別のタブなので、設定を読み込んだことが見えるように移る
-    // (続きを作り直す onContinue も reuse を通るので、ここで一緒に面倒を見る)
+    setCreateOpen(true);
     if (isPhone()) setTab("create");
   };
   const playTake = (take: Take) => {
-    if (selected === take.id) player.toggle();
+    if (effectiveSelected === take.id) player.toggle();
     else {
       setSelected(take.id);
       if (!player.playing) player.play();
@@ -212,7 +226,9 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
 
   // キー操作: Space 再生、← → 5 秒、↑ ↓ テイクを切り替え (位置はそのまま)、L ループ、F お気に入り
   const keys = useRef({ doneTakes, selectedTake });
-  keys.current = { doneTakes, selectedTake };
+  useEffect(() => {
+    keys.current = { doneTakes, selectedTake };
+  }, [doneTakes, selectedTake]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -287,7 +303,12 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
           </button>
         ))}
       </nav>
-      <div className="studio" data-tab={tab}>
+      <div
+        className={`studio studio-custom ${centerView !== "piano" ? "is-expanded" : ""} ${
+          !showCreatePanel ? "hide-left" : ""
+        }`}
+        data-tab={tab}
+      >
         <CreatePanel
           config={config}
           draft={draft}
@@ -296,22 +317,35 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
           continueTake={continueTake}
           onClearContinue={() => setContinueFrom(null)}
           onGenerate={() => generate.mutate()}
+          onClose={takes.length > 0 ? () => setCreateOpen(false) : undefined}
           generating={generate.isPending}
           disabled={disabledReason}
         />
 
         {/* has-roll: 巻物があるときだけ、巻物を固定して一覧だけをスクロールさせる */}
-        <section className={`center ${data.source || centerView === "lyrics" ? "has-roll" : ""}`}>
-          <div className="song-head">
-            <div className="song-title-block">
+        <section
+          className={`center ${
+            centerView === "repair"
+              ? "is-repair-mode"
+              : data.source || centerView === "lyrics"
+                ? "has-roll"
+                : ""
+          }`}
+        >
+          <div className="song-head studio-header-card">
+            <div className="studio-header-left">
+              <button
+                type="button"
+                className="studio-back-btn"
+                onClick={() => navigate("/projects")}
+                title="Quay lại danh sách Projects"
+              >
+                ← Projects
+              </button>
               <h1>{data.title}</h1>
-              <div className="muted small">
-                {data.audio ?? t.noAudio} · {t.sourceMidi}:{" "}
-                {data.source ? (data.source.origin === "tsumugi" ? t.sourceByTsumugi : t.sourceUploaded) : t.sourceNotYet}
-              </div>
             </div>
             <div className="song-actions">
-              <div className="segmented small" role="tablist" aria-label="Chế độ hiển thị Project">
+              <div className="studio-mode-tabs" role="tablist" aria-label="Chế độ làm việc Studio">
                 <button
                   type="button"
                   role="tab"
@@ -324,19 +358,90 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                 <button
                   type="button"
                   role="tab"
+                  aria-selected={centerView === "repair"}
+                  className={centerView === "repair" ? "on" : ""}
+                  disabled={!data.source && doneTakes.length === 0}
+                  onClick={() => setCenterView("repair")}
+                >
+                  ✦ Smart MIDI Repair
+                </button>
+                <button
+                  type="button"
+                  role="tab"
                   aria-selected={centerView === "lyrics"}
                   className={centerView === "lyrics" ? "on" : ""}
                   onClick={() => setCenterView("lyrics")}
                 >
-                  ✦ AI Lyrics {data.lyrics?.segment_count ? `(${data.lyrics.segment_count})` : ""}
+                  ♪ AI Lyrics
+                  {data.lyrics?.segment_count ? (
+                    <span className="studio-tab-badge">{data.lyrics.segment_count}</span>
+                  ) : null}
                 </button>
               </div>
-              {data.source && (
-                <a className="btn small" href={urls.sourceMidi(pid)} download>
-                  <Icon name="download" size={15} /> {t.sourceMidi}
-                </a>
+
+              {centerView === "piano" && (
+                <>
+                  <button
+                    type="button"
+                    className={`btn small ${showCreatePanel ? "" : "primary"}`}
+                    onClick={() => setCreateOpen(!showCreatePanel)}
+                  >
+                    <Icon name="plus" size={14} /> {showCreatePanel ? "Đóng tạo phối" : "Tạo phối mới"}
+                  </button>
+
+                  <div className="studio-menu-wrap" ref={moreMenuRef}>
+                    <button
+                      type="button"
+                      className="studio-menu-btn"
+                      aria-label="Tác vụ MIDI gốc"
+                      aria-expanded={moreMenuOpen}
+                      onClick={() => setMoreMenuOpen((v) => !v)}
+                    >
+                      ⋯
+                    </button>
+                    {moreMenuOpen && (
+                      <div className="studio-menu-dropdown" role="menu">
+                        {data.source && (
+                          <a
+                            role="menuitem"
+                            href={urls.sourceMidi(pid)}
+                            download
+                            onClick={() => setMoreMenuOpen(false)}
+                          >
+                            <Icon name="download" size={15} /> Tải MIDI gốc
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreMenuOpen(false);
+                            midiUploadRef.current?.click();
+                          }}
+                        >
+                          <Icon name="layers" size={15} /> Thay tệp MIDI gốc…
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      ref={midiUploadRef}
+                      type="file"
+                      accept=".mid,.midi"
+                      hidden
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        try {
+                          refresh(await api.uploadSource(pid, file));
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : String(err));
+                        }
+                      }}
+                    />
+                  </div>
+                </>
               )}
-              <SourceUpload pid={pid} onDone={refresh} onError={setError} />
             </div>
           </div>
 
@@ -346,7 +451,21 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
             </div>
           )}
 
-          {centerView === "lyrics" ? (
+          {centerView === "repair" ? (
+            <SmartMidiRepair
+              pid={pid}
+              project={data}
+              selectedTake={selectedTake}
+              player={player}
+              onSelectTake={tid => setSelected(tid)}
+              onProjectUpdated={detail => {
+                refresh(detail);
+                void qc.invalidateQueries({ queryKey: ["take-view", pid] });
+                void qc.invalidateQueries({ queryKey: ["source-view", pid] });
+              }}
+              onSwitchToPiano={() => setCenterView("piano")}
+            />
+          ) : centerView === "lyrics" ? (
             <LyricsPanel pid={pid} project={data} player={player} />
           ) : (
             <>
@@ -371,22 +490,10 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                       <Icon name="chevron" size={14} />
                       {rollOpen ? t.rollCollapse : t.rollExpand}
                     </button>
-                    <div className="legend">
-                      <label className="check">
-                        <input type="checkbox" checked={showSource} onChange={(e) => setShowSource(e.target.checked)} />
-                        {t.overlaySource}
-                      </label>
-                      {showSource && (
-                        <span className="legend-items">
-                          {["--src-melody", "--src-bass", "--src-keys", "--src-guitar", "--src-other"].map((c, i) => (
-                            <span key={c}>
-                              <i style={{ background: `var(${c})` }} />
-                              {t.legend[i]}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </div>
+                    <label className="check">
+                      <input type="checkbox" checked={showSource} onChange={(e) => setShowSource(e.target.checked)} />
+                      Hiện MIDI gốc
+                    </label>
                   </div>
                   <PianoRoll
                     player={player}
@@ -395,17 +502,13 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                     showSource={showSource}
                     continueAt={continueFrom?.seconds ?? null}
                   />
-                  <div className="roll-hint muted small">
-                    <span className="roll-hint-text">{t.rollHint}</span>
-                    {player.loop && (
-                      <>
-                        {" · "}
-                        <button className="link" onClick={() => player.setLoop(null)}>
-                          {t.clearLoop(formatTime(player.loop[0]), formatTime(player.loop[1]))}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {player.loop && (
+                    <div className="roll-hint muted small">
+                      <button className="link" onClick={() => player.setLoop(null)}>
+                        Bỏ vòng lặp ({formatTime(player.loop[0])}–{formatTime(player.loop[1])})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -440,8 +543,8 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                         key={take.id}
                         take={take}
                         defaults={config.defaults}
-                        selected={take.id === selected}
-                        playing={take.id === selected && player.playing}
+                        selected={take.id === effectiveSelected}
+                        playing={take.id === effectiveSelected && player.playing}
                         continueLabel={cf ? t.continueChip(base ? takeLabel(base, t) : cf.take, formatTime(cf.seconds)) : null}
                         onSelect={() => {
                           setSelected(take.id);
@@ -493,6 +596,7 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                 selectedTake.score?.job && run(async () => (await api.cancelJob(selectedTake.score!.job!), refresh()))
               }
               onOpenScore={() => setScoreOpen(selectedTake.id)}
+              onRepair={() => setCenterView("repair")}
             />
           ) : (
             <div className="detail empty muted">{t.selectTakeHint}</div>
@@ -520,42 +624,6 @@ export function Studio({ pid, config, navigate }: { pid: string; config: Config;
                 ? t.original
                 : t.chooseTake
         }
-      />
-    </>
-  );
-}
-
-function SourceUpload({
-  pid,
-  onDone,
-  onError,
-}: {
-  pid: string;
-  onDone: (d: ProjectDetail) => void;
-  onError: (m: string) => void;
-}) {
-  const t = useT();
-  const input = useRef<HTMLInputElement>(null);
-  return (
-    <>
-      <button className="btn small" onClick={() => input.current?.click()} title={t.replaceMidiHelp}>
-        <Icon name="layers" size={15} /> {t.replaceMidi}
-      </button>
-      <input
-        ref={input}
-        type="file"
-        accept=".mid,.midi"
-        hidden
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (!file) return;
-          try {
-            onDone(await api.uploadSource(pid, file));
-          } catch (err) {
-            onError(err instanceof Error ? err.message : String(err));
-          }
-        }}
       />
     </>
   );

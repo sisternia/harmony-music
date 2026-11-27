@@ -80,6 +80,8 @@ export type Take = {
   job?: string;
   progress?: number | null;
   message?: string;
+  repaired_from?: string | null;
+  repair_score?: number | null;
 };
 
 export type Transcribe = {
@@ -143,6 +145,130 @@ export type SourceView = {
 export type CoverNote = [number, number, number, number, number];
 export type CoverView = { duration: number; notes: CoverNote[]; pedals: [number, number][] };
 
+export type MidiRepairOptions = {
+  remove_ghost_notes: boolean;
+  min_duration_ms: number;
+  min_velocity: number;
+  fix_overlaps: boolean;
+  duplicate_window_ms: number;
+  rearticulate_gap_ms: number;
+  clamp_piano_range: boolean;
+  fix_hand_span: boolean;
+  split_pitch: number;
+  max_hand_span: number;
+  max_polyphony: number;
+  smart_quantize: boolean;
+  quantize_strength: number;
+  grid_subdivision: "8th" | "16th" | "triplet";
+  normalize_velocity: boolean;
+  vel_min: number;
+  vel_max: number;
+  melody_boost: number;
+  clean_pedals: boolean;
+  max_pedal_sec: number;
+  repedal_on_chord: boolean;
+};
+
+export type MidiRepairIssueType =
+  | "ghost_notes"
+  | "overlapping_notes"
+  | "out_of_range"
+  | "hand_span"
+  | "timing_jitter"
+  | "velocity_spikes"
+  | "pedal_glitches";
+
+export type MidiRepairIssue = {
+  id: string;
+  type: MidiRepairIssueType;
+  severity: "high" | "medium" | "low";
+  time: number;
+  pitch: number;
+  note_idx: number | null;
+  label: string;
+};
+
+export type MidiRepairScores = {
+  overall: number;
+  cleanliness: number;
+  playability: number;
+  timing: number;
+  expression: number;
+};
+
+export type MidiRepairSnapshot = {
+  duration: number;
+  note_count: number;
+  pedal_count: number;
+  notes: CoverNote[];
+  pedals: [number, number][];
+  issue_counts: Record<MidiRepairIssueType, number>;
+  total_issues: number;
+  scores: MidiRepairScores;
+  issues: MidiRepairIssue[];
+};
+
+export type MidiRepairDiffNote = {
+  idx: number;
+  onset: number;
+  duration: number;
+  pitch: number;
+  velocity: number;
+  orig_onset: number;
+  orig_duration: number;
+  orig_pitch: number;
+  status: "kept" | "modified" | "removed" | "manual_deleted";
+  reasons: string[];
+};
+
+export type MidiRepairPreviewResponse = {
+  options: MidiRepairOptions;
+  beats: number[];
+  chords: [number, string][];
+  has_backup: boolean;
+  before: MidiRepairSnapshot;
+  after: MidiRepairSnapshot;
+  diff: {
+    kept_count: number;
+    modified_count: number;
+    removed_count: number;
+    actions: {
+      ghosts_removed: number;
+      overlaps_fixed: number;
+      range_clamped: number;
+      hand_spans_fixed: number;
+      notes_quantized: number;
+      velocities_balanced: number;
+      pedals_cleaned: number;
+      manual_edits: number;
+    };
+    notes: MidiRepairDiffNote[];
+  };
+};
+
+export type MidiRepairManualUpdate = {
+  idx: number;
+  onset?: number;
+  duration?: number;
+  pitch?: number;
+  velocity?: number;
+};
+
+export type MidiRepairApplyResponse = {
+  project: ProjectDetail;
+  created_take_id?: string;
+  updated_take_id?: string;
+  has_backup?: boolean;
+  summary: {
+    note_count: number;
+    pedal_count: number;
+    duration: number;
+    actions: MidiRepairPreviewResponse["diff"]["actions"];
+    issue_counts: Record<MidiRepairIssueType, number>;
+    scores: MidiRepairScores;
+  };
+};
+
 // お気に入りから学習した好みのベクトル (cover_studio/styles.py)。学習したモデルでだけ使える
 export type Style = {
   id: string;
@@ -185,22 +311,66 @@ export type SongscriptionWord = {
   end: number;
   probability: number | null;
   uncertain?: boolean;
+  timing_source?: string;
 };
 
 export type ReviewStatus = "needs_review" | "verified" | "edited" | "skipped";
+export type VocalEventType = "lyric" | "vocable" | "humming" | "unknown_vocal";
+export type VocalRole = "lead" | "backing" | "unknown";
+
+export type SongscriptionCandidate = {
+  candidate_id: string;
+  text: string;
+  event_type?: VocalEventType;
+  language?: string | null;
+  source_audio_variant?: string;
+  config?: Record<string, unknown>;
+  avg_logprob?: number | null;
+  no_speech_prob?: number | null;
+  confidence?: number | null;
+  coverage?: number | null;
+  status?: "pending" | "accepted" | "rejected";
+};
+
+export type SongscriptionStreamInfo = {
+  id: string;
+  label: string;
+  has_isolated_audio?: boolean;
+  audio_url?: string | null;
+};
+
+export type MultiSingerSeparationStatus = {
+  available: boolean;
+  provider: string | null;
+  status: string;
+  note?: string;
+};
 
 export type SongscriptionSegment = {
   id: number;
   start: number;
   end: number;
   text: string;
+  text_raw?: string;
+  text_edited?: string | null;
+  event_type?: VocalEventType;
+  vocal_role?: VocalRole;
+  is_adlib?: boolean | null;
+  stream_id?: string;
+  overlap_group_id?: string | null;
+  language?: string | null;
   lang: string;
   section?: string | null;
   chord?: string | null;
   confidence?: number | null;
   low_confidence?: boolean;
   review_status?: ReviewStatus | null;
+  review_reasons?: string[];
   review_reason?: string | null;
+  timing_source?: string;
+  timing_granularity?: "word" | "line" | "region";
+  source_audio_variant?: string;
+  candidates?: SongscriptionCandidate[];
   words?: SongscriptionWord[];
 };
 
@@ -211,8 +381,10 @@ export type SongscriptionDetectedLanguage = {
 };
 
 export type SongscriptionTranscript = {
+  schema_version?: number;
   mode?: "extract" | "align";
   model?: string;
+  config_hash?: string;
   language: string;
   language_name: string;
   language_confidence: number;
@@ -220,9 +392,15 @@ export type SongscriptionTranscript = {
   is_multilingual: boolean;
   vocal_isolated: boolean;
   vocal_cached?: boolean;
+  instrumental_cached?: boolean;
   alignment_method?: "word" | "line";
   duration: number;
+  streams?: SongscriptionStreamInfo[];
+  multi_singer_separation?: MultiSingerSeparationStatus;
   segments: SongscriptionSegment[];
+  raw_asr_segments?: Record<string, unknown>[];
+  diagnostics?: Record<string, unknown>;
+  edit_history?: Record<string, unknown>[];
   full_text: string;
   structured_text?: string;
 };
@@ -238,6 +416,8 @@ export type SongscriptionItem = {
   error: string | null;
   source_kind: "project" | "youtube" | "upload";
   project_id: string | null;
+  youtube_url?: string | null;
+  youtube_id?: string | null;
   requested_language: string;
   model: string;
   isolate_vocals: boolean;
@@ -247,6 +427,8 @@ export type SongscriptionItem = {
   detected_languages: SongscriptionDetectedLanguage[];
   vocal_isolated: boolean;
   vocal_cached?: boolean;
+  instrumental_cached?: boolean;
+  available_streams?: string[];
   alignment_method?: "word" | "line" | null;
   duration: number | null;
   segment_count: number;
@@ -393,6 +575,32 @@ export const api = {
     request<Take>(`${p(pid)}/takes/${tid}`, json("PATCH", body)),
   deleteTake: (pid: string, tid: string) => request<void>(`${p(pid)}/takes/${tid}`, { method: "DELETE" }),
   takeView: (pid: string, tid: string) => request<CoverView>(`${p(pid)}/takes/${tid}/view`),
+  previewMidiRepair: (
+    pid: string,
+    body: {
+      target: "take" | "source";
+      take_id?: string | null;
+      options: Partial<MidiRepairOptions>;
+      manual_deletes?: number[];
+      manual_keeps?: number[];
+      manual_updates?: MidiRepairManualUpdate[];
+    },
+  ) => request<MidiRepairPreviewResponse>(`${p(pid)}/midi-repair/preview`, json("POST", body)),
+  applyMidiRepair: (
+    pid: string,
+    body: {
+      target: "take" | "source";
+      take_id?: string | null;
+      save_mode: "new_take" | "overwrite_take" | "overwrite_source";
+      name?: string;
+      options: Partial<MidiRepairOptions>;
+      manual_deletes?: number[];
+      manual_keeps?: number[];
+      manual_updates?: MidiRepairManualUpdate[];
+    },
+  ) => request<MidiRepairApplyResponse>(`${p(pid)}/midi-repair/apply`, json("POST", body)),
+  revertMidiRepair: (pid: string, body: { target: "take" | "source"; take_id?: string | null }) =>
+    request<{ project: ProjectDetail; reverted: boolean }>(`${p(pid)}/midi-repair/revert`, json("POST", body)),
   score: (pid: string, tid: string, model: string | null) =>
     request<ProjectDetail>(`${p(pid)}/takes/${tid}/score`, json("POST", { model })),
   scoreXml: async (pid: string, tid: string) => {
@@ -426,9 +634,12 @@ export const api = {
     sid: string,
     body: { lyrics_text: string; language: string; model: string; isolate_vocals: boolean },
   ) => request<SongscriptionItem>(`/api/songscriptions/${encodeURIComponent(sid)}/align`, json("POST", body)),
-  updateSongscription: (sid: string, body: { title?: string; segments?: SongscriptionSegment[] }) =>
+  updateSongscription: (sid: string, body: { title?: string; segments?: SongscriptionSegment[]; youtube_url?: string }) =>
     request<SongscriptionItem>(`/api/songscriptions/${encodeURIComponent(sid)}`, json("PATCH", body)),
-  retranscribeSongscriptionFlagged: (sid: string, body?: { segment_ids?: number[]; model?: string }) =>
+  retranscribeSongscriptionFlagged: (
+    sid: string,
+    body?: { segment_ids?: number[]; model?: string; language?: string },
+  ) =>
     request<RetranscribeFlaggedResponse>(
       `/api/songscriptions/${encodeURIComponent(sid)}/retranscribe-flagged`,
       json("POST", body ?? {}),
@@ -444,4 +655,9 @@ export const urls = {
   takeMidi: (pid: string, tid: string) => apiUrl(`${p(pid)}/takes/${tid}/cover.mid`),
   takeScore: (pid: string, tid: string) => apiUrl(`${p(pid)}/takes/${tid}/score.musicxml`),
   songscriptionAudio: (sid: string) => apiUrl(`/api/songscriptions/${encodeURIComponent(sid)}/audio`),
+  songscriptionVocalAudio: (sid: string) => apiUrl(`/api/songscriptions/${encodeURIComponent(sid)}/vocal-audio`),
+  songscriptionInstrumentalAudio: (sid: string) =>
+    apiUrl(`/api/songscriptions/${encodeURIComponent(sid)}/instrumental-audio?v=bsr`),
+  songscriptionStreamAudio: (sid: string, streamId: string) =>
+    apiUrl(`/api/songscriptions/${encodeURIComponent(sid)}/streams/${encodeURIComponent(streamId)}/audio`),
 };

@@ -1,4 +1,64 @@
-import type { ReviewStatus, SongscriptionSegment } from "../api";
+import type { ReviewStatus, SongscriptionSegment, VocalEventType, VocalRole } from "../api";
+
+export type ExportPolicy = "main_only" | "with_adlib" | "merged_labeled" | "per_stream";
+
+export const EVENT_TYPE_OPTIONS: { value: VocalEventType; label: string }[] = [
+  { value: "lyric", label: "Lời hát" },
+  { value: "vocable", label: "Vocalise / Âm đệm" },
+  { value: "humming", label: "Humming / Ngân" },
+  { value: "unknown_vocal", label: "Nghi có vocal" },
+];
+
+export const VOCAL_ROLE_OPTIONS: { value: VocalRole; label: string }[] = [
+  { value: "unknown", label: "Chưa rõ vai trò" },
+  { value: "lead", label: "Giọng chính" },
+  { value: "backing", label: "Hát bè / Đệm" },
+];
+
+export const STREAM_OPTIONS: { value: string; label: string }[] = [
+  { value: "stream_a", label: "Luồng A" },
+  { value: "stream_b", label: "Luồng B" },
+  { value: "stream_c", label: "Luồng C" },
+];
+
+export function streamLabel(streamId?: string | null): string {
+  const sid = (streamId || "stream_a").trim().toLowerCase();
+  if (sid === "stream_a") return "Luồng A";
+  if (sid === "stream_b") return "Luồng B";
+  if (sid === "stream_c") return "Luồng C";
+  const m = sid.match(/^stream_([a-z0-9]+)$/);
+  return m ? `Luồng ${m[1].toUpperCase()}` : sid;
+}
+
+export function getEffectiveEventType(seg: SongscriptionSegment): VocalEventType {
+  if (
+    seg.event_type === "lyric" ||
+    seg.event_type === "vocable" ||
+    seg.event_type === "humming" ||
+    seg.event_type === "unknown_vocal"
+  ) {
+    return seg.event_type;
+  }
+  return seg.text.trim() ? "lyric" : "unknown_vocal";
+}
+
+export function isAdlibOrVocalise(seg: SongscriptionSegment): boolean {
+  const ev = getEffectiveEventType(seg);
+  return ev === "vocable" || ev === "humming" || ev === "unknown_vocal" || seg.is_adlib === true;
+}
+
+export function isMainLyric(seg: SongscriptionSegment): boolean {
+  return getEffectiveEventType(seg) === "lyric" && seg.is_adlib !== true;
+}
+
+export function isOverlapSegment(seg: SongscriptionSegment, allSegments: SongscriptionSegment[]): boolean {
+  if (seg.overlap_group_id) return true;
+  if ((seg.stream_id || "stream_a") !== "stream_a") return true;
+  return allSegments.some(
+    other =>
+      other.id !== seg.id && Math.min(seg.end, other.end) - Math.max(seg.start, other.start) >= 0.2,
+  );
+}
 
 export const LANGUAGE_OPTIONS: [string, string][] = [
   ["auto", "✦ Tự động nhận diện (Đa ngôn ngữ)"],
@@ -40,6 +100,7 @@ export const PIPELINE_STAGES: { key: string; label: string; short: string }[] = 
 ];
 
 export const STAGE_LABELS: Record<string, string> = {
+  processing_gpu: "Modal GPU đang xử lý tách giọng, nhận lời và rà soát; đang chờ kết quả…",
   preparing_audio: "Bước 1/5 · Đang chuẩn bị dữ liệu âm thanh…",
   separating_vocals: "Bước 2/5 · Đang tách riêng giọng hát AI (BS-RoFormer)…",
   isolating_vocals: "Bước 2/5 · Đang tách riêng giọng hát AI (BS-RoFormer)…",
@@ -48,6 +109,7 @@ export const STAGE_LABELS: Record<string, string> = {
   recognizing_lyrics: "Bước 3/5 · Đang nhận diện lời hát từ kênh giọng hát…",
   transcribing_lyrics: "Bước 3/5 · Đang trích xuất lời hát & căn dấu thời gian…",
   aligning_timestamps: "Bước 4/5 · Đang căn chỉnh dấu thời gian & cấu trúc bài hát…",
+  reviewing_vocals: "Bước 4/5 · Đang rà soát ad-lib / scat…",
   refining_script: "Bước 4/5 · Đang lọc tạp âm & hoàn thiện script…",
   saving_transcript: "Bước 5/5 · Đang lưu bản lời bài hát…",
   completed: "Hoàn tất!",
@@ -63,6 +125,7 @@ export function resolveStageIndex(message?: string | null, progress?: number | n
     return 0;
   }
   if (message === "preparing_audio") return 0;
+  if (message === "processing_gpu") return 1;
   if (message === "separating_vocals" || message === "isolating_vocals") return 1;
   if (
     message === "recognizing_lyrics" ||
@@ -71,7 +134,7 @@ export function resolveStageIndex(message?: string | null, progress?: number | n
     message === "transcribing_lyrics"
   )
     return 2;
-  if (message === "aligning_timestamps" || message === "refining_script") return 3;
+  if (message === "aligning_timestamps" || message === "refining_script" || message === "reviewing_vocals") return 3;
   if (message === "saving_transcript") return 4;
   if (message === "completed") return 5;
   return 2;
@@ -81,10 +144,16 @@ export function getEffectiveReviewStatus(seg: SongscriptionSegment): ReviewStatu
   if (seg.review_status === "verified" || seg.review_status === "edited" || seg.review_status === "skipped") {
     return seg.review_status;
   }
+  const ev = getEffectiveEventType(seg);
   const words = seg.words ?? [];
   const uncertainWordCount = words.filter(w => w.uncertain).length;
   const manyUncertainWords = uncertainWordCount >= 2 && words.length > 0 && uncertainWordCount / words.length >= 0.28;
-  if (seg.review_status === "needs_review" || seg.low_confidence || manyUncertainWords) {
+  if (
+    seg.review_status === "needs_review" ||
+    ev === "unknown_vocal" ||
+    seg.low_confidence ||
+    manyUncertainWords
+  ) {
     return "needs_review";
   }
   return "verified";
@@ -97,14 +166,18 @@ export function isLineFlaggedForReview(seg: SongscriptionSegment): boolean {
 
 export function getReviewReason(seg: SongscriptionSegment): string {
   if (seg.review_reason) return seg.review_reason;
+  const ev = getEffectiveEventType(seg);
+  if (ev === "unknown_vocal") {
+    return "Nghi có giọng hát nhưng ASR chưa nhận rõ chữ — cần nghe đối chiếu";
+  }
   const st = getEffectiveReviewStatus(seg);
   if (st === "skipped") return "Đã đánh dấu xem lại sau";
   const uncertainWords = (seg.words ?? []).filter(w => w.uncertain).length;
   if (seg.confidence != null && seg.confidence < 0.55) {
-    return `Độ tin cậy nhận diện thấp (${Math.round(seg.confidence * 100)}%)`;
+    return `Điểm ASR thấp (${Math.round(seg.confidence * 100)}%)`;
   }
   if (uncertainWords > 0) {
-    return `${uncertainWords} từ có độ tin cậy thấp`;
+    return `${uncertainWords} từ có độ chắc chắn thấp`;
   }
   if (seg.confidence == null && seg.low_confidence) {
     return "Chưa khớp điểm neo âm học";
@@ -238,6 +311,29 @@ export function stripImportedLyricsFormat(raw: string): string {
     .trim();
 }
 
+export function filterSegmentsForExport(segments: SongscriptionSegment[], policy: ExportPolicy): SongscriptionSegment[] {
+  if (policy === "main_only") {
+    return segments.filter(s => isMainLyric(s) && s.text.trim().length > 0);
+  }
+  return segments.filter(s => s.text.trim().length > 0 || getEffectiveEventType(s) === "unknown_vocal");
+}
+
+function formatSegmentExportText(seg: SongscriptionSegment, policy: ExportPolicy, multiStream: boolean): string {
+  const ev = getEffectiveEventType(seg);
+  let body = seg.text.trim();
+  if (!body && ev === "unknown_vocal") {
+    body = "[Nghi có vocal]";
+  } else if (ev === "humming" && !body.startsWith("(")) {
+    body = `(${body})`;
+  } else if (seg.is_adlib && ev === "vocable" && policy === "merged_labeled" && !body.startsWith("(")) {
+    body = `(${body})`;
+  }
+  if (policy === "merged_labeled" && multiStream) {
+    return `[${streamLabel(seg.stream_id)}] ${body}`;
+  }
+  return body;
+}
+
 export function exportTranscriptFiles(
   title: string,
   language: string,
@@ -246,48 +342,76 @@ export function exportTranscriptFiles(
 ) {
   const safeBaseName = (title || "lyrics").replace(/[\\/:*?"<>|]+/g, "_");
   const hasWordTimings = segments.some(s => s.words && s.words.length > 0);
+  const streamIds = Array.from(new Set(segments.map(s => s.stream_id || "stream_a")));
+  const multiStream = streamIds.length > 1;
+
+  const runByPolicy = (policy: ExportPolicy, emit: (list: SongscriptionSegment[], suffix: string) => void) => {
+    if (policy === "per_stream" && multiStream) {
+      for (const sid of streamIds) {
+        const subset = filterSegmentsForExport(
+          segments.filter(s => (s.stream_id || "stream_a") === sid),
+          "with_adlib",
+        );
+        if (subset.length) emit(subset, `_${sid}`);
+      }
+      return;
+    }
+    emit(filterSegmentsForExport(segments, policy), policy === "main_only" ? "_main" : "");
+  };
 
   return {
     hasWordTimings,
-    exportTxt: (includeSections = true) => {
-      const lines: string[] = [];
-      for (const seg of segments) {
-        if (includeSections && seg.section) {
-          if (lines.length) lines.push("");
-          lines.push(`[${seg.section}]`);
+    multiStream,
+    streamIds,
+    exportTxt: (includeSections = true, policy: ExportPolicy = "with_adlib") => {
+      runByPolicy(policy, (list, suffix) => {
+        const lines: string[] = [];
+        for (const seg of list) {
+          if (includeSections && seg.section) {
+            if (lines.length) lines.push("");
+            lines.push(`[${seg.section}]`);
+          }
+          lines.push(formatSegmentExportText(seg, policy, multiStream));
         }
-        lines.push(seg.text);
-      }
-      const header = `${title}\nNgôn ngữ: ${languageName}\n${"—".repeat(40)}\n\n`;
-      downloadTextFile(`${safeBaseName}.txt`, header + lines.join("\n") + "\n");
-    },
-    exportLrc: () => {
-      const meta = [`[ti:${title}]`, `[la:${language}]`, `[by:Harmony Auralis AI Lyrics]`, ""];
-      const lines = segments.map(s => `[${formatLrcClock(s.start)}]${s.text}`);
-      downloadTextFile(`${safeBaseName}.lrc`, [...meta, ...lines].join("\n") + "\n");
-    },
-    exportEnhancedLrc: () => {
-      const meta = [
-        `[ti:${title}]`,
-        `[la:${language}]`,
-        `[by:Harmony Auralis AI Lyrics (Enhanced Word-Sync)]`,
-        "",
-      ];
-      const lines = segments.map(s => {
-        const lineStart = `[${formatLrcClock(s.start)}]`;
-        if (s.words && s.words.length > 0) {
-          const wordTags = s.words.map(w => `<${formatLrcClock(w.start)}>${w.word}`).join("");
-          return `${lineStart}${wordTags}`;
-        }
-        return `${lineStart}${s.text}`;
+        const header = `${title}\nNgôn ngữ: ${languageName}\n${"—".repeat(40)}\n\n`;
+        downloadTextFile(`${safeBaseName}${suffix}.txt`, header + lines.join("\n") + "\n");
       });
-      downloadTextFile(`${safeBaseName}.elrc.lrc`, [...meta, ...lines].join("\n") + "\n");
     },
-    exportSrt: () => {
-      const blocks = segments.map(
-        (s, idx) => `${idx + 1}\n${formatSrtClock(s.start)} --> ${formatSrtClock(s.end)}\n${s.text}`,
-      );
-      downloadTextFile(`${safeBaseName}.srt`, blocks.join("\n\n") + "\n");
+    exportLrc: (policy: ExportPolicy = "with_adlib") => {
+      runByPolicy(policy, (list, suffix) => {
+        const meta = [`[ti:${title}]`, `[la:${language}]`, `[by:Harmony Auralis AI Lyrics]`, ""];
+        const lines = list.map(s => `[${formatLrcClock(s.start)}]${formatSegmentExportText(s, policy, multiStream)}`);
+        downloadTextFile(`${safeBaseName}${suffix}.lrc`, [...meta, ...lines].join("\n") + "\n");
+      });
+    },
+    exportEnhancedLrc: (policy: ExportPolicy = "with_adlib") => {
+      runByPolicy(policy, (list, suffix) => {
+        const meta = [
+          `[ti:${title}]`,
+          `[la:${language}]`,
+          `[by:Harmony Auralis AI Lyrics (Enhanced Word-Sync)]`,
+          "",
+        ];
+        const lines = list.map(s => {
+          const lineStart = `[${formatLrcClock(s.start)}]`;
+          const prefix = policy === "merged_labeled" && multiStream ? `[${streamLabel(s.stream_id)}] ` : "";
+          if (s.words && s.words.length > 0 && getEffectiveEventType(s) !== "humming") {
+            const wordTags = s.words.map(w => `<${formatLrcClock(w.start)}>${w.word}`).join("");
+            return `${lineStart}${prefix}${wordTags}`;
+          }
+          return `${lineStart}${formatSegmentExportText(s, policy, multiStream)}`;
+        });
+        downloadTextFile(`${safeBaseName}${suffix}.elrc.lrc`, [...meta, ...lines].join("\n") + "\n");
+      });
+    },
+    exportSrt: (policy: ExportPolicy = "with_adlib") => {
+      runByPolicy(policy, (list, suffix) => {
+        const blocks = list.map(
+          (s, idx) =>
+            `${idx + 1}\n${formatSrtClock(s.start)} --> ${formatSrtClock(s.end)}\n${formatSegmentExportText(s, policy, multiStream)}`,
+        );
+        downloadTextFile(`${safeBaseName}${suffix}.srt`, blocks.join("\n\n") + "\n");
+      });
     },
     exportJson: (extra?: Record<string, unknown>) => {
       downloadTextFile(

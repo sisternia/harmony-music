@@ -18,6 +18,18 @@ class YouTubeImportError(Exception):
         self.status_code = status_code
 
 
+def extract_youtube_id(value: str | None) -> str | None:
+    """Return the 11-character YouTube video ID if `value` is a valid YouTube URL, else None."""
+    if not value or not value.strip():
+        return None
+    try:
+        normalized = normalize_youtube_url(value)
+    except YouTubeImportError:
+        return None
+    vid = parse_qs(urlsplit(normalized).query).get("v", [""])[0]
+    return vid if VIDEO_ID.fullmatch(vid) else None
+
+
 def normalize_youtube_url(value: str) -> str:
     """Accept video URLs only, then discard playlist and tracking parameters."""
     try:

@@ -1,5 +1,5 @@
 // テイクの一覧 (新しい順) と、選んだテイクの詳細
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Config, Params, Take } from "../../features/studio/api";
 import { progressText, useT } from "../../i18n";
 import { ALL_SLIDERS, diffChips, formatTime, formatValue, performerText } from "../../features/studio/utils/params";
@@ -72,6 +72,11 @@ export function TakeCard(props: CardProps) {
         </div>
         <div className="chips">
           {props.continueLabel && <span className="chip continue">✂ {props.continueLabel}</span>}
+          {take.repaired_from && (
+            <span className="chip repaired">
+              ✦ Smart Repaired{take.repair_score != null ? ` · ${take.repair_score}/100` : ""}
+            </span>
+          )}
           {chips.length ? (
             chips.map((c) => (
               <span className="chip" key={c}>
@@ -150,6 +155,7 @@ type DetailProps = {
   onScore: () => void;
   onCancelScore: () => void;
   onOpenScore: () => void;
+  onRepair?: () => void;
 };
 
 function ScoreSection(props: DetailProps) {
@@ -230,13 +236,13 @@ function ScoreSection(props: DetailProps) {
 export function TakeDetail(props: DetailProps) {
   const { take, config } = props;
   const t = useT();
-  const [name, setName] = useState(take.name);
-  const [memo, setMemo] = useState(take.memo);
+  const takeKey = `${take.id}:${take.name}:${take.memo}`;
+  const [draft, setDraft] = useState<{ key: string; name: string; memo: string } | null>(null);
+  const name = draft?.key === takeKey ? draft.name : take.name;
+  const memo = draft?.key === takeKey ? draft.memo : take.memo;
+  const setName = (next: string) => setDraft({ key: takeKey, name: next, memo });
+  const setMemo = (next: string) => setDraft({ key: takeKey, name, memo: next });
   const [rendering, setRendering] = useState(false);
-  useEffect(() => {
-    setName(take.name);
-    setMemo(take.memo);
-  }, [take.id, take.name, take.memo]);
   const defaults = config.defaults;
   const styleName = useStyleName();
   const done = take.state === "done";
@@ -264,19 +270,8 @@ export function TakeDetail(props: DetailProps) {
       </div>
 
       <div className="detail-actions">
-        <button className="btn" onClick={props.onReuse}>
-          <Icon name="reuse" size={16} /> {t.reuse}
-        </button>
-        <button
-          className="btn"
-          disabled={!done}
-          onClick={() => props.onContinue(props.position())}
-          title={t.continueHereHelp}
-        >
-          <Icon name="scissors" size={16} /> {t.continueHere}
-        </button>
         <a className={`btn ${done ? "" : "disabled"}`} href={done ? props.midiUrl : undefined} download>
-          <Icon name="download" size={16} /> MIDI
+          <Icon name="download" size={15} /> Tải MIDI
         </a>
         <button
           className="btn"
@@ -291,58 +286,69 @@ export function TakeDetail(props: DetailProps) {
           }}
           title={t.wavHelp}
         >
-          <Icon name="download" size={16} /> {rendering ? t.wavRendering : t.wav}
+          <Icon name="download" size={15} /> {rendering ? "Đang xuất…" : "Tải WAV"}
         </button>
-        <button className="btn danger" onClick={props.onDelete} title={t.delete}>
-          <Icon name="trash" size={16} />
+        <button
+          className="btn"
+          disabled={!done}
+          onClick={() => props.onContinue(props.position())}
+          title={t.continueHereHelp}
+        >
+          <Icon name="scissors" size={15} /> Viết tiếp từ đây
+        </button>
+        <button className="btn danger" onClick={props.onDelete} title="Xóa bản phối này">
+          <Icon name="trash" size={15} />
         </button>
       </div>
 
       <ScoreSection {...props} />
 
-      <table className="params">
-        <tbody>
-          <tr>
-            <th>{t.seed}</th>
-            <td className="mono">{take.seed}</td>
-          </tr>
-          <tr>
-            <th>{t.length}</th>
-            <td>{take.params.seconds == null ? t.fullLength : t.chipSeconds(take.params.seconds)}</td>
-          </tr>
-          <tr className={take.params.channel || take.params.style ? "changed" : ""}>
-            <th>{t.performer}</th>
-            <td>{performerText(take.params, t, styleName)}</td>
-          </tr>
-          {ALL_SLIDERS.map((def) => {
-            const value = take.params[def.key];
-            const changed = Math.abs(value - defaults[def.key]) > 1e-9;
-            const off =
-              (def.key === "channel_cfg" && !take.params.channel && !take.params.style) ||
-              (!take.params.arrangement && ["fill", "above", "span"].includes(def.key));
-            return (
-              <tr key={def.key} className={`${changed ? "changed" : ""} ${off ? "off" : ""}`}>
-                <th>{t.params[def.key].label}</th>
-                <td className="mono">
-                  {formatValue(value, def.step)}
-                  {changed && <span className="muted"> {t.defaultValue(formatValue(defaults[def.key], def.step))}</span>}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <details className="detail-more-info">
+        <summary>Thông số &amp; ghi chú</summary>
+        <table className="params">
+          <tbody>
+            <tr>
+              <th>{t.seed}</th>
+              <td className="mono">{take.seed}</td>
+            </tr>
+            <tr>
+              <th>{t.length}</th>
+              <td>{take.params.seconds == null ? t.fullLength : t.chipSeconds(take.params.seconds)}</td>
+            </tr>
+            <tr className={take.params.channel || take.params.style ? "changed" : ""}>
+              <th>{t.performer}</th>
+              <td>{performerText(take.params, t, styleName)}</td>
+            </tr>
+            {ALL_SLIDERS.map((def) => {
+              const value = take.params[def.key];
+              const changed = Math.abs(value - defaults[def.key]) > 1e-9;
+              const off =
+                (def.key === "channel_cfg" && !take.params.channel && !take.params.style) ||
+                (!take.params.arrangement && ["fill", "above", "span"].includes(def.key));
+              return (
+                <tr key={def.key} className={`${changed ? "changed" : ""} ${off ? "off" : ""}`}>
+                  <th>{t.params[def.key].label}</th>
+                  <td className="mono">
+                    {formatValue(value, def.step)}
+                    {changed && <span className="muted"> {t.defaultValue(formatValue(defaults[def.key], def.step))}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
 
-      <label className="memo">
-        <span className="muted small">{t.memo}</span>
-        <textarea
-          value={memo}
-          placeholder={t.memoPlaceholder}
-          onChange={(e) => setMemo(e.target.value)}
-          onBlur={() => memo !== take.memo && props.onMemo(memo)}
-          rows={3}
-        />
-      </label>
+        <label className="memo">
+          <span className="muted small">Ghi chú</span>
+          <textarea
+            value={memo}
+            placeholder="Thêm ghi chú cho bản phối này…"
+            onChange={(e) => setMemo(e.target.value)}
+            onBlur={() => memo !== take.memo && props.onMemo(memo)}
+            rows={2}
+          />
+        </label>
+      </details>
     </div>
   );
 }

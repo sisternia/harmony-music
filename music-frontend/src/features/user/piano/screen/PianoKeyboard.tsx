@@ -106,7 +106,7 @@ export default function PianoKeyboard({ apiUrl, nativeHost = false, initialSong 
   const rangeCount = width > height ? 25 : 13;
   useEffect(() => { configurePianoApi(apiUrl); }, [apiUrl]);
   const pianoAudio = usePianoAudio();
-  const { isReady, pressNote, releaseNote, setGlobalVolume } = pianoAudio;
+  const { pressNote, releaseNote, setGlobalVolume } = pianoAudio;
   const [importOpen, setImportOpen] = useState(false);
   const [song, setSong] = useState<PianoSong | null>(initialSong);
   const [midiTransportTarget, setMidiTransportTarget] = useState<HTMLDivElement | null>(null);
@@ -301,9 +301,7 @@ export default function PianoKeyboard({ apiUrl, nativeHost = false, initialSong 
             /> : <div className="staff-paper" hidden={staffState === 0}>
               <PianoStaff pressedKeys={pressedKeys} showBass={staffState === 2} />
               <div className="chord-info">
-                <b id="chord-name">
-                  {!isReady ? 'Loading audio...' : ''}
-                </b>
+                <b id="chord-name" />
               </div>
             </div>}
           </div>

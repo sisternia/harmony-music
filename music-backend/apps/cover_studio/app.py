@@ -38,11 +38,18 @@ from .lyrics_service import (
     language_label,
     sanitize_edited_segments,
 )
+from .music_asr_engine import DEFAULT_MODEL_ID, normalize_model_id
 from .project import Project, now, projects, safe_name
 from .songscription import SONGSCRIPTION_MODELS, SongscriptionStore, run_songscription_job
 from .styles import StyleStore
 from .web import STATIC_DIR
-from .youtube import MAX_AUDIO_BYTES, YouTubeImportError, download_youtube_audio
+from .youtube import (
+    MAX_AUDIO_BYTES,
+    YouTubeImportError,
+    download_youtube_audio,
+    extract_youtube_id,
+    normalize_youtube_url,
+)
 
 log = logging.getLogger(__name__)
 
@@ -104,23 +111,25 @@ class TakePatch(BaseModel):
 class SongscriptionPatch(BaseModel):
     title: str | None = None
     segments: list[dict] | None = None
+    youtube_url: str | None = None
 
 
 class SongscriptionAlignIn(BaseModel):
     lyrics_text: str
     language: str = "auto"
-    model: str = "turbo"
+    model: str = DEFAULT_MODEL_ID
     isolate_vocals: bool = True
 
 
 class SongscriptionRetranscribeIn(BaseModel):
     segment_ids: list[int] | None = None
     model: str | None = None
+    language: str | None = None
 
 
 class LyricsExtractIn(BaseModel):
     language: str = "auto"
-    model: str = "turbo"
+    model: str = DEFAULT_MODEL_ID
     isolate_vocals: bool = True
     force_separate: bool = False
 
@@ -128,12 +137,31 @@ class LyricsExtractIn(BaseModel):
 class LyricsAlignIn(BaseModel):
     lyrics_text: str
     language: str = "auto"
-    model: str = "turbo"
+    model: str = DEFAULT_MODEL_ID
     isolate_vocals: bool = True
 
 
 class LyricsSaveIn(BaseModel):
     segments: list[dict]
+
+
+class MidiRepairPreviewIn(BaseModel):
+    target: str = "take"
+    take_id: str | None = None
+    options: dict = Field(default_factory=dict)
+    manual_deletes: list[int] = Field(default_factory=list)
+    manual_keeps: list[int] = Field(default_factory=list)
+    manual_updates: list[dict] = Field(default_factory=list)
+
+
+class MidiRepairApplyIn(MidiRepairPreviewIn):
+    save_mode: str = "new_take"
+    name: str | None = None
+
+
+class MidiRepairRevertIn(BaseModel):
+    target: str = "take"
+    take_id: str | None = None
 
 
 def create_app(root: str | Path, engine: Engine) -> FastAPI:
@@ -200,7 +228,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
                 mode=mode,
                 user_lyrics_text=lyrics_text,
                 requested_language=str(state_meta.get("requested_language") or "auto"),
-                model_id=str(state_meta.get("model") or "turbo"),
+                model_id=normalize_model_id(state_meta.get("model")),
                 isolate_vocals=bool(state_meta.get("isolate_vocals", True)),
                 force_separate=bool(state_meta.get("force_separate", False)),
                 chords=chords,
@@ -211,6 +239,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
             lstore.update(
                 transcript=transcript,
                 state="done",
+                model=normalize_model_id(transcript.get("model") or state_meta.get("model")),
                 error=None,
                 completed=now(),
                 language=transcript["language"],
@@ -488,16 +517,20 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         with tempfile.TemporaryDirectory(prefix="cover-studio-youtube-") as temp_dir:
             try:
                 video_title = ""
+                yt_url: str | None = None
+                yt_id: str | None = None
                 if youtube:
                     try:
-                        audio_path, video_title = download_youtube_audio(youtube, Path(temp_dir))
+                        yt_url = normalize_youtube_url(youtube)
+                        yt_id = extract_youtube_id(yt_url)
+                        audio_path, video_title = download_youtube_audio(yt_url, Path(temp_dir))
                     except YouTubeImportError as exc:
                         raise HTTPException(exc.status_code, str(exc)) from exc
                 else:
                     audio_path = save_upload(audio, AUDIO_EXTS) if audio is not None else None
                     midi_path = save_upload(midi, MIDI_EXTS) if midi is not None else None
                 name = title.strip() or video_title or Path((audio_path or midi_path).name).stem
-                p = Project.create(root, name, audio_path, midi_path)
+                p = Project.create(root, name, audio_path, midi_path, youtube_url=yt_url, youtube_id=yt_id)
             finally:
                 for path in (audio_path, midi_path):
                     if path is not None and path.is_relative_to(root / ".uploads"):
@@ -713,6 +746,177 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
             raise HTTPException(404, "まだ生成していません")
         return cover_view(path)
 
+    # ------------------------------------------------------------ Smart MIDI Repair
+    def _resolve_repair_target(p: Project, target: str, take_id: str | None):
+        from .midi_view import source_view
+
+        source_beats: list[float] | None = None
+        source_chords: list[tuple[float, str]] | None = None
+        if p.has_source:
+            try:
+                sv = source_view(p.source_path)
+                source_beats = sv.get("beats") or None
+                raw_chords = sv.get("chords") or []
+                source_chords = [(float(c[0]), str(c[1])) for c in raw_chords if len(c) >= 2]
+            except Exception:
+                source_beats, source_chords = None, None
+
+        if target == "source":
+            if not p.has_source:
+                raise HTTPException(404, "Project chưa có Source MIDI để sửa.")
+            return p.source_path, True, p.dir / "source.orig.mid", None, source_beats, source_chords
+
+        if not take_id:
+            raise HTTPException(400, "Cần chọn một Take đã hoàn tất để sửa MIDI.")
+        take = find_take(p, take_id)
+        if take.get("state") != "done":
+            raise HTTPException(400, "Chỉ hỗ trợ sửa MIDI cho Take đã tạo xong.")
+        midi_path = p.take_midi(take_id)
+        if not midi_path.is_file():
+            raise HTTPException(404, "Không tìm thấy tệp MIDI của Take này.")
+        return midi_path, False, p.take_dir(take_id) / "cover.orig.mid", take, source_beats, source_chords
+
+    @app.post("/api/projects/{pid}/midi-repair/preview")
+    def preview_project_midi_repair(pid: str, body: MidiRepairPreviewIn):
+        from .midi_repair import RepairOptions, preview_midi_repair
+
+        p = open_project(pid)
+        midi_path, _is_src, backup_path, _take, beats, chords = _resolve_repair_target(p, body.target, body.take_id)
+        opts = RepairOptions.from_dict(body.options)
+        res = preview_midi_repair(
+            midi_path,
+            opts,
+            source_beats=beats,
+            source_chords=chords,
+            manual_deletes=body.manual_deletes,
+            manual_keeps=body.manual_keeps,
+            manual_updates=body.manual_updates,
+        )
+        res["has_backup"] = backup_path.is_file()
+        return res
+
+    @app.post("/api/projects/{pid}/midi-repair/apply")
+    def apply_project_midi_repair(pid: str, body: MidiRepairApplyIn):
+        from .midi_repair import RepairOptions, write_repaired_midi
+
+        p = open_project(pid)
+        midi_path, is_src, backup_path, take, beats, chords = _resolve_repair_target(p, body.target, body.take_id)
+        opts = RepairOptions.from_dict(body.options)
+        mode = body.save_mode
+
+        if mode == "new_take":
+            if take is not None:
+                base_label = (take.get("name") or f"Take {take['number']}").strip()
+                base_params = take.get("params") or studio_params()
+                base_model = take.get("model") or {"id": "smart-midi-repair", "label": "Smart MIDI Repair"}
+                base_seed = int(take.get("seed") or 0)
+            else:
+                base_label = "Source MIDI"
+                base_params = studio_params()
+                base_model = {"id": "smart-midi-repair", "label": "Smart MIDI Repair"}
+                base_seed = 0
+            new_name = (body.name or f"{base_label} · Repaired").strip()[:80]
+            record = {
+                "params": base_params,
+                "model": base_model,
+                "seed": base_seed,
+                "count": 1,
+                "continue_from": None,
+                "repaired_from": body.take_id or "source",
+            }
+            created = p.new_takes(1, record)[0]
+            new_tid = created["id"]
+            summary = write_repaired_midi(
+                midi_path,
+                p.take_midi(new_tid),
+                opts,
+                is_source_midi=False,
+                metadata_source_path=p.source_path if p.has_source else midi_path,
+                source_beats=beats,
+                source_chords=chords,
+                manual_deletes=body.manual_deletes,
+                manual_keeps=body.manual_keeps,
+                manual_updates=body.manual_updates,
+            )
+            p.update_take(
+                new_tid,
+                name=new_name,
+                state="done",
+                duration=summary["duration"],
+                notes=summary["note_count"],
+                metadata_copied=True,
+                repair_summary=summary["actions"],
+                repair_score=summary["scores"]["overall"],
+            )
+            return {"project": detail(p), "created_take_id": new_tid, "summary": summary}
+
+        if mode == "overwrite_take":
+            if is_src or take is None or not body.take_id:
+                raise HTTPException(400, "Chế độ ghi đè Take chỉ áp dụng khi đang sửa Take.")
+            if not backup_path.is_file():
+                shutil.copy2(midi_path, backup_path)
+            summary = write_repaired_midi(
+                midi_path,
+                midi_path,
+                opts,
+                is_source_midi=False,
+                metadata_source_path=p.source_path if p.has_source else midi_path,
+                source_beats=beats,
+                source_chords=chords,
+                manual_deletes=body.manual_deletes,
+                manual_keeps=body.manual_keeps,
+                manual_updates=body.manual_updates,
+            )
+            p.update_take(
+                body.take_id,
+                duration=summary["duration"],
+                notes=summary["note_count"],
+                metadata_copied=True,
+                repair_summary=summary["actions"],
+                repair_score=summary["scores"]["overall"],
+            )
+            return {"project": detail(p), "updated_take_id": body.take_id, "has_backup": True, "summary": summary}
+
+        if mode == "overwrite_source":
+            if not is_src:
+                raise HTTPException(400, "Chế độ ghi đè Source chỉ áp dụng khi đang sửa Source MIDI.")
+            if not backup_path.is_file():
+                shutil.copy2(midi_path, backup_path)
+            summary = write_repaired_midi(
+                midi_path,
+                midi_path,
+                opts,
+                is_source_midi=True,
+                source_beats=beats,
+                source_chords=chords,
+                manual_deletes=body.manual_deletes,
+                manual_keeps=body.manual_keeps,
+                manual_updates=body.manual_updates,
+            )
+            p.update(source={**(p.data.get("source") or {}), "created": now(), "repaired": True})
+            return {"project": detail(p), "has_backup": True, "summary": summary}
+
+        raise HTTPException(400, f"Chế độ lưu không hợp lệ: {mode}")
+
+    @app.post("/api/projects/{pid}/midi-repair/revert")
+    def revert_project_midi_repair(pid: str, body: MidiRepairRevertIn):
+        from .midi_view import cover_view
+
+        p = open_project(pid)
+        midi_path, is_src, backup_path, take, _beats, _chords = _resolve_repair_target(p, body.target, body.take_id)
+        if not backup_path.is_file():
+            raise HTTPException(404, "Không có bản sao lưu gốc để khôi phục.")
+        tmp = midi_path.with_suffix(".mid.tmp")
+        shutil.copy2(backup_path, tmp)
+        tmp.replace(midi_path)
+        backup_path.unlink(missing_ok=True)
+        if is_src:
+            p.update(source={**(p.data.get("source") or {}), "created": now(), "repaired": False})
+        elif take is not None and body.take_id:
+            cv = cover_view(midi_path)
+            p.update_take(body.take_id, duration=cv["duration"], notes=len(cv["notes"]), repair_summary=None, repair_score=None)
+        return {"project": detail(p), "reverted": True}
+
     # ------------------------------------------------------------ 好み
     def style_view(style: dict) -> dict:
         """一覧に返す形 (ベクトルは除き、学習中なら進み具合を付ける)"""
@@ -816,7 +1020,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
             mode="extract",
             error=None,
             requested_language=body.language or "auto",
-            model=body.model or "turbo",
+            model=normalize_model_id(body.model),
             isolate_vocals=bool(body.isolate_vocals),
             force_separate=bool(body.force_separate),
         )
@@ -843,7 +1047,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
             mode="align",
             error=None,
             requested_language=body.language or "auto",
-            model=body.model or "turbo",
+            model=normalize_model_id(body.model),
             isolate_vocals=bool(body.isolate_vocals),
             force_separate=False,
         )
@@ -890,6 +1094,8 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         sha1 = view.get("audio_sha1")
         if sha1:
             view["vocal_cached"] = songscriptions.cache.has_vocal(sha1)
+            view["instrumental_cached"] = songscriptions.has_instrumental_audio(sha1)
+            view["available_streams"] = songscriptions.cache.available_streams(sha1)
         job = next((j for j in runner.jobs("") if j.kind == "songscription" and j.takes[0] == item["id"]), None)
         if job is not None and job.active:
             view.update(job=job.id, state=job.state, progress=job.progress, message=job.message)
@@ -920,7 +1126,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         mode: Annotated[str, Form()] = "extract",
         lyrics_text: Annotated[str, Form()] = "",
         language: Annotated[str, Form()] = "auto",
-        model: Annotated[str, Form()] = "turbo",
+        model: Annotated[str, Form()] = DEFAULT_MODEL_ID,
         isolate_vocals: Annotated[bool, Form()] = True,
     ):
         youtube = youtube.strip()
@@ -936,16 +1142,22 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         uploaded_path: Path | None = None
         with tempfile.TemporaryDirectory(prefix="songscription-in-") as temp_dir:
             try:
+                yt_url: str | None = None
+                yt_id: str | None = None
                 if project_id:
                     proj = open_project(project_id)
                     if proj.audio_path is None or not proj.audio_path.is_file():
                         raise HTTPException(400, "Project này không có tệp âm thanh gốc để trích xuất lời.")
                     source_audio = proj.audio_path
                     resolved_title = title.strip() or proj.data["title"]
+                    yt_url = proj.data.get("youtube_url")
+                    yt_id = proj.data.get("youtube_id") or extract_youtube_id(yt_url)
                     source_kind = "project"
                 elif youtube:
                     try:
-                        source_audio, video_title = download_youtube_audio(youtube, Path(temp_dir))
+                        yt_url = normalize_youtube_url(youtube)
+                        yt_id = extract_youtube_id(yt_url)
+                        source_audio, video_title = download_youtube_audio(yt_url, Path(temp_dir))
                     except YouTubeImportError as exc:
                         raise HTTPException(exc.status_code, str(exc)) from exc
                     resolved_title = title.strip() or video_title
@@ -962,10 +1174,12 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
                     source_audio,
                     source_kind=source_kind,
                     project_id=project_id or None,
+                    youtube_url=yt_url,
+                    youtube_id=yt_id,
                     mode=mode,
                     lyrics_text=lyrics_text,
                     requested_language=language,
-                    model_id=model,
+                    model_id=normalize_model_id(model),
                     isolate_vocals=isolate_vocals,
                 )
             finally:
@@ -981,14 +1195,15 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
 
     @app.post("/api/songscriptions/{sid}/retry")
     def retry_songscription(sid: str):
-        find_songscription(sid)
+        cur = find_songscription(sid)
         if any(j.kind == "songscription" and j.takes[0] == sid for j in runner.active_for("")):
             raise HTTPException(409, "Tác vụ đang chạy.")
         songscriptions.update(
             sid,
             state="queued",
             mode="extract",
-            isolate_vocals=engine.tsumugi is not None,
+            model=normalize_model_id(cur.get("model")),
+            isolate_vocals=True,
             error=None,
         )
         runner.submit("songscription", "", [sid])
@@ -1008,7 +1223,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
             mode="align",
             error=None,
             requested_language=body.language or "auto",
-            model=body.model or "turbo",
+            model=normalize_model_id(body.model),
             isolate_vocals=bool(body.isolate_vocals),
         )
         runner.submit("songscription", "", [sid])
@@ -1024,6 +1239,19 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         if body.title is not None and body.title.strip():
             updates["title"] = body.title.strip()
             updates["updated"] = now()
+        if body.youtube_url is not None:
+            raw_yt = body.youtube_url.strip()
+            if not raw_yt:
+                updates["youtube_url"] = None
+                updates["youtube_id"] = None
+            else:
+                try:
+                    norm_yt = normalize_youtube_url(raw_yt)
+                except YouTubeImportError as exc:
+                    raise HTTPException(exc.status_code, str(exc)) from exc
+                updates["youtube_url"] = norm_yt
+                updates["youtube_id"] = extract_youtube_id(norm_yt)
+            updates["updated"] = now()
         return songscription_view(songscriptions.update(sid, **updates))
 
     @app.post("/api/songscriptions/{sid}/retranscribe-flagged")
@@ -1037,6 +1265,7 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
                 sid,
                 segment_ids=payload.segment_ids,
                 model_id=payload.model,
+                language_override=payload.language,
             )
         except ValueError as e:
             raise HTTPException(400, str(e)) from e
@@ -1052,6 +1281,31 @@ def create_app(root: str | Path, engine: Engine) -> FastAPI:
         if audio_file is None or not audio_file.is_file():
             raise HTTPException(404, "Không tìm thấy tệp âm thanh.")
         return FileResponse(audio_file)
+
+    @app.get("/api/songscriptions/{sid}/vocal-audio")
+    def get_songscription_vocal_audio(sid: str):
+        find_songscription(sid)
+        vocal_file = songscriptions.vocal_audio_path(sid)
+        if vocal_file is None or not vocal_file.is_file():
+            raise HTTPException(404, "Chưa có kênh giọng hát tách riêng trong bộ nhớ đệm cho phiên này.")
+        return FileResponse(vocal_file, media_type="audio/wav", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/api/songscriptions/{sid}/instrumental-audio")
+    def get_songscription_instrumental_audio(sid: str):
+        find_songscription(sid)
+        inst_file = songscriptions.instrumental_audio_path(sid, engine=engine)
+        if inst_file is None or not inst_file.is_file():
+            raise HTTPException(404, "Chưa có kênh nhạc nền (Instrumental) tách riêng cho phiên này.")
+        media_type = "audio/mpeg" if inst_file.suffix.lower() == ".mp3" else "audio/wav"
+        return FileResponse(inst_file, media_type=media_type, headers={"Cache-Control": "no-cache"})
+
+    @app.get("/api/songscriptions/{sid}/streams/{stream_id}/audio")
+    def get_songscription_stream_audio(sid: str, stream_id: str):
+        find_songscription(sid)
+        stream_file = songscriptions.stream_audio_path(sid, stream_id)
+        if stream_file is None or not stream_file.is_file():
+            raise HTTPException(404, f"Chưa có tệp âm thanh tách riêng cho luồng {stream_id}.")
+        return FileResponse(stream_file, media_type="audio/wav")
 
     @app.delete("/api/songscriptions/{sid}", status_code=204)
     def delete_songscription(sid: str):

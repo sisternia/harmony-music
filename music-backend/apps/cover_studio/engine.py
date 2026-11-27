@@ -346,12 +346,29 @@ class Engine:
             raise FileNotFoundError(
                 "このモデルは原曲の音声から拍とメロディを予測して使います。音源のあるプロジェクトで生成してください"
             )
+        progress(0.0, "beats")  # 画面が言語に合わせて訳す (web/src/i18n.ts の progressText)
+        log(f"原曲の拍とメロディを予測しています: {audio.name}")
+
+        # Offload SheetSage2-Refined to Modal GPU L4 when enabled
+        try:
+            from .modal_client import is_modal_enabled, modal_sheetsage_annotate
+
+            if is_modal_enabled():
+                log("☁ [Modal L4] Đang phân tích nhịp phách & giai điệu trên GPU NVIDIA L4...")
+                result = modal_sheetsage_annotate(source_audio=audio, sheetsage_model=self.sheetsage_model)
+                result["audio_sha1"] = sha1
+                tmp = out.with_suffix(".json.tmp")
+                tmp.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+                tmp.replace(out)
+                log(f"☁ [Modal L4] Hoàn tất: {len(result['beats'])} nhịp · {len(result['melody'])} nốt giai điệu")
+                return out
+        except Exception as exc:  # noqa: BLE001
+            log(f"Cảnh báo Modal GPU ({exc}) — chuyển về chạy SheetSage Local...")
+
         import torch
 
         from piano_ar.sheetsage import SheetSageAnnotator
 
-        progress(0.0, "beats")  # 画面が言語に合わせて訳す (web/src/i18n.ts の progressText)
-        log(f"原曲の拍とメロディを予測しています: {audio.name}")
         annotator = SheetSageAnnotator(self.sheetsage_model, device=str(self.device))
         try:
             result = annotator.annotate(audio)
@@ -428,6 +445,71 @@ class Engine:
         with self._lock:
             first = project.take(take_ids[0])
             entry = self.entry(first["model"]["id"])
+
+            # Offload Piano Cover generation to Modal GPU L4 when enabled & using a Hugging Face model
+            if entry.kind == "hub":
+                try:
+                    from .modal_client import is_modal_enabled, modal_generate_covers
+
+                    if is_modal_enabled() and project.has_source:
+                        progress(0.08, "loading")
+                        log(f"☁ [Modal L4] Đang tạo {len(take_ids)} bản phối Piano Cover ({entry.label}) trên GPU L4...")
+                        for take_id in take_ids:
+                            project.update_take(take_id, state="running")
+                        ss_path = project.dir / "sheetsage.json"
+                        ss_json = json.loads(ss_path.read_text(encoding="utf-8")) if ss_path.is_file() else None
+                        frames_path = project.dir / "frames.npz"
+                        keep = first.get("continue_from")
+                        prompt_patches = None
+                        if keep:
+                            patches = project.take_patches(keep["take"])
+                            prompt_patches = patches or None
+                        m_res = modal_generate_covers(
+                            model_spec=entry.spec,
+                            source_midi=project.source_path,
+                            source_audio=project.audio_path,
+                            sheetsage_json=ss_json,
+                            frames_npz=frames_path if frames_path.is_file() else None,
+                            params_dict=first["params"],
+                            num_samples=len(take_ids),
+                            seed=int(first["seed"]),
+                            prompt_patches=prompt_patches,
+                            style_vector=style,
+                            sheetsage_model=self.sheetsage_model,
+                        )
+                        if m_res.get("num_channels"):
+                            entry.num_channels = int(m_res["num_channels"])
+                        if m_res.get("sheetsage") and not ss_path.is_file():
+                            ss_out = dict(m_res["sheetsage"])
+                            ss_out["audio_sha1"] = project.data.get("audio_sha1")
+                            ss_path.write_text(json.dumps(ss_out, ensure_ascii=False), encoding="utf-8")
+                        if m_res.get("frames_npz_bytes") and not frames_path.is_file():
+                            frames_path.write_bytes(m_res["frames_npz_bytes"])
+                        if m_res.get("updated_source_midi_bytes"):
+                            project.source_path.write_bytes(m_res["updated_source_midi_bytes"])
+                        source_created = (project.data.get("source") or {}).get("created")
+                        source_beats = (project.data.get("source") or {}).get("beats_map")
+                        for take_id, cov in zip(take_ids, m_res["covers"]):
+                            d = project.take_dir(take_id)
+                            (d / "cover.mid").write_bytes(cov["cover_midi_bytes"])
+                            (d / "patches.json").write_text(json.dumps(cov["patches"]), encoding="utf-8")
+                            project.update_take(
+                                take_id,
+                                state="done",
+                                duration=float(cov["duration"]),
+                                notes=int(cov["notes"]),
+                                source_created=source_created,
+                                source_beats=source_beats,
+                                metadata_copied=bool(cov["metadata_copied"]),
+                            )
+                        progress(1.0, "done")
+                        log(f"☁ [Modal L4] Đã tạo xong {len(take_ids)} bản phối Piano Cover!")
+                        return
+                except Cancelled:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    log(f"Cảnh báo Modal GPU ({exc}) — tự động chuyển về tạo Piano Cover Local...")
+
             progress(0.0, "loading")  # 画面が言語に合わせて訳す (web/src/i18n.ts の progressText)
             model = self.model(entry, log)
             params = CoverParams.from_dict(first["params"])
@@ -605,6 +687,35 @@ class Engine:
             if project.audio_path is None and not (project.dir / "sheetsage.json").is_file():
                 raise FileNotFoundError("楽譜にするには原曲の拍が要ります。音源のあるプロジェクトで使ってください")
             annotation = json.loads(self._sheetsage(project, progress, log).read_text(encoding="utf-8"))
+
+            # Offload MusicXML score generation to Modal GPU L4 when enabled
+            if entry.kind == "hub":
+                try:
+                    from .modal_client import is_modal_enabled, modal_generate_score
+
+                    if is_modal_enabled():
+                        progress(0.25, "loading")
+                        name = take.get("name") or f"#{take['number']}"
+                        log(f"☁ [Modal L4] Đang xuất bản nhạc phổ MusicXML ({entry.label}) trên GPU L4...")
+                        m_res = modal_generate_score(
+                            score_model_spec=entry.spec,
+                            cover_midi=midi,
+                            source_midi=project.source_path if project.has_source else None,
+                            sheetsage_json=annotation,
+                            title=f"{project.data['title']} {name}",
+                        )
+                        out = project.take_dir(take_id) / "score.musicxml"
+                        tmp = out.with_suffix(".tmp")
+                        tmp.write_text(m_res["musicxml"], encoding="utf-8")
+                        tmp.replace(out)
+                        progress(1.0, "done")
+                        log(f"☁ [Modal L4] Đã xuất bản nhạc phổ: {m_res['measures']} ô nhịp!")
+                        return int(m_res["measures"])
+                except Cancelled:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    log(f"Cảnh báo Modal GPU ({exc}) — chuyển về xuất MusicXML Local...")
+
             progress(0.0, "loading")
             model, tokenizer, banned = self.score_model(entry, log)
 
@@ -636,11 +747,41 @@ class Engine:
         live: Callable[[str, dict], None] | None = None,
     ) -> None:
         """live(種類, 中身) には worker が流す途中経過 (確定したノートなど。tsumugi_worker.emit) を渡す"""
-        if self.tsumugi is None:
-            raise RuntimeError("tsumugi が見つかりません (--tsumugi-dir で場所を指定してください)")
         audio = project.audio_path
         if audio is None:
             raise RuntimeError("音源のないプロジェクトは採譜できません")
+
+        # Offload Tsumugi transcription + SheetSage beats to Modal GPU L4 when enabled
+        try:
+            from .modal_client import is_modal_enabled, modal_transcribe_audio
+
+            if is_modal_enabled():
+                progress(0.15, "starting")
+                log("☁ [Modal L4] Đang chép nốt MIDI (Tsumugi) & phân tích nhịp (SheetSage2) trên GPU NVIDIA L4...")
+                m_res = modal_transcribe_audio(source_audio=audio, sheetsage_model=self.sheetsage_model)
+                for m_log in m_res.get("logs") or []:
+                    log(str(m_log))
+                out = project.dir / "source.tsumugi.mid"
+                out.write_bytes(m_res["midi_bytes"])
+                project.set_source(out, "tsumugi")
+                out.unlink(missing_ok=True)
+                ss = m_res.get("sheetsage")
+                if ss:
+                    sha1 = project.data.get("audio_sha1")
+                    ss["audio_sha1"] = sha1
+                    ss_path = project.dir / "sheetsage.json"
+                    ss_path.write_text(json.dumps(ss, ensure_ascii=False), encoding="utf-8")
+                    self._source_beats(project, progress, log)
+                progress(1.0, "done")
+                log("☁ [Modal L4] Hoàn tất chép nốt MIDI trên GPU L4!")
+                return
+        except Cancelled:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log(f"Cảnh báo Modal GPU ({exc}) — tự động chuyển về chạy Tsumugi Local...")
+
+        if self.tsumugi is None:
+            raise RuntimeError("tsumugi が見つかりません (--tsumugi-dir で場所を指定してください)")
         # tsumugi は VRAM を多く使うので、カバーモデルを手放してから走らせる
         self.unload()
         out = project.dir / "source.tsumugi.mid"

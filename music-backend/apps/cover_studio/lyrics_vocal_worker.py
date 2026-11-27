@@ -27,12 +27,14 @@ def main() -> None:
     parser.add_argument("--tsumugi-dir", required=True)
     parser.add_argument("--audio", required=True, help="Input 44.1kHz stereo WAV")
     parser.add_argument("--out", required=True, help="Output 16kHz mono PCM16 vocals WAV")
+    parser.add_argument("--instrumental-out", default=None, help="Optional output 44.1kHz stereo instrumental WAV")
     parser.add_argument("--ffmpeg-dir", default=None)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
 
     audio_in = Path(args.audio).resolve()
     audio_out = Path(args.out).resolve()
+    inst_out = Path(args.instrumental_out).resolve() if args.instrumental_out else None
     tsumugi_dir = Path(args.tsumugi_dir).resolve()
 
     if args.ffmpeg_dir:
@@ -122,6 +124,33 @@ def main() -> None:
                 tmp_out = audio_out.with_suffix(".tmp.wav")
                 sf.write(str(tmp_out), mono, 16000, subtype="PCM_16")
                 os.replace(tmp_out, audio_out)
+
+                if inst_out is not None:
+                    inst_acc = None
+                    inst_sr = sr
+                    for stem_key in ("bass", "drums", "other", "guitar", "piano", "instrumental", "no_vocals"):
+                        sp = saved.get(stem_key)
+                        if sp is None or not sp.is_file():
+                            continue
+                        arr, s_sr = sf.read(str(sp), dtype="float32", always_2d=True)
+                        if not np.isfinite(arr).all():
+                            continue
+                        if inst_acc is None:
+                            inst_acc = arr.astype(np.float64, copy=True)
+                            inst_sr = int(s_sr)
+                        else:
+                            n_len = min(inst_acc.shape[0], arr.shape[0])
+                            n_ch = min(inst_acc.shape[1], arr.shape[1])
+                            inst_acc = inst_acc[:n_len, :n_ch] + arr[:n_len, :n_ch].astype(np.float64)
+                    if inst_acc is not None and inst_acc.size > 0:
+                        peak = float(np.max(np.abs(inst_acc), initial=0.0))
+                        if peak > 0.98:
+                            inst_acc = inst_acc * (0.98 / peak)
+                        inst_out.parent.mkdir(parents=True, exist_ok=True)
+                        tmp_inst = inst_out.with_suffix(".tmp.wav")
+                        sf.write(str(tmp_inst), np.clip(inst_acc, -1.0, 1.0).astype(np.float32), inst_sr, subtype="PCM_16")
+                        os.replace(tmp_inst, inst_out)
+
                 emit("done", {"out": str(audio_out), "device": str(run_device)})
                 return
             except Exception as exc:  # noqa: BLE001

@@ -56,7 +56,7 @@ class ProjectImportTests(unittest.TestCase):
 
     def test_youtube_link_uses_downloaded_audio_and_video_title(self):
         def fake_download(url: str, directory: Path):
-            self.assertEqual(url, "https://youtu.be/dQw4w9WgXcQ")
+            self.assertEqual(url, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
             audio = directory / "source.mp3"
             audio.write_bytes(b"downloaded audio")
             return audio, "Video title"

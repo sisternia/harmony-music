@@ -2,7 +2,6 @@
 // クリックでその位置へ、ドラッグでループ区間、ホイールで横に動かす (Ctrl / ⌘ + ホイールで拡大縮小)。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CoverView, SourceView } from "../../features/studio/api";
-import { useT } from "../../i18n";
 import { formatTime } from "../../features/studio/utils/params";
 import type { Player } from "../../features/studio/utils/player";
 
@@ -60,7 +59,7 @@ function clampViewStart(start: number, seconds: number, duration: number) {
   return Math.max(0, Math.min(start, Math.max(0, duration - seconds)));
 }
 
-export function PianoRoll({ player, cover, source, showSource, continueAt, height = 300 }: Props) {
+export function PianoRoll({ player, cover, source, showSource, continueAt, height = 390 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const keyboardRef = useRef<HTMLCanvasElement>(null);
   const view = useRef({ start: 0, seconds: 16 });
@@ -70,9 +69,8 @@ export function PianoRoll({ player, cover, source, showSource, continueAt, heigh
   const manualPitches = useRef(new Map<number, number>());
   const hoverPitch = useRef<number | null>(null);
   const focusedPitch = useRef(60);
-  const t = useT();
   const [zoom, setZoom] = useState(16);
-  const [pitchSpan, setPitchSpan] = useState(36);
+  const [pitchSpan, setPitchSpan] = useState(88);
   const [pitchOffset, setPitchOffset] = useState(0);
   const [fullHeight, setFullHeight] = useState(false);
   const requestedZoom = useRef(zoom);
@@ -189,9 +187,9 @@ export function PianoRoll({ player, cover, source, showSource, continueAt, heigh
         keyCtx.fillRect(0, y, kw, rowH);
         keyCtx.strokeStyle = colors["--roll-grid"];
         keyCtx.strokeRect(0.5, y + 0.5, kw - 1, Math.max(0, rowH - 1));
-        if (p % 12 === 0 && rowH >= 8) {
+        if (p % 12 === 0 && rowH >= 3) {
           keyCtx.fillStyle = active.has(p) || hoverPitch.current === p ? colors["--accent"] : colors["--roll-text"];
-          keyCtx.font = `600 10px ${CANVAS_FONT}`;
+          keyCtx.font = `600 ${rowH >= 8 ? 10 : 9}px ${CANVAS_FONT}`;
           keyCtx.textBaseline = "middle";
           keyCtx.fillText(noteName(p), 5, y + rowH / 2);
         }
@@ -491,49 +489,37 @@ export function PianoRoll({ player, cover, source, showSource, continueAt, heigh
         }}
         />
       </div>
-      <div className="roll-zoom">
-        <span>{t.view}</span>
-        <input
-          type="range"
-          min={4}
-          max={maxZoom}
-          step={1}
-          value={Math.min(zoom, maxZoom)}
-          onChange={(e) => setZoom(Number(e.target.value))}
-          aria-label={t.viewSeconds}
-        />
-        <span className="mono">{Math.round(Math.min(zoom, player.duration || zoom))} {t.sec}</span>
-        <span className="roll-vertical-label">Pitch range</span>
-        <input
-          type="range"
-          min={24}
-          max={88}
-          step={1}
-          value={Math.max(24, visiblePitchRange.hi - visiblePitchRange.lo + 1)}
-          onChange={(e) => { setPitchSpan(Number(e.target.value)); setPitchOffset(0); }}
-          aria-label="Vertical pitch range"
-          title="Adjust vertical pitch range"
-        />
+      <div className="roll-zoom roll-zoom-bar">
         <button
           type="button"
           className="roll-fit"
-          onClick={() => { setPitchSpan(0); setPitchOffset(0); setFullHeight(false); }}
-          title="Fit visible notes"
-        >Fit</button>
+          onClick={() => setZoom((z) => Math.max(4, Math.round(z * 0.72)))}
+          title="Phóng to"
+        >+</button>
+        <span className="mono">{Math.round(Math.min(zoom, player.duration || zoom))}s</span>
+        <button
+          type="button"
+          className="roll-fit"
+          onClick={() => setZoom((z) => Math.min(maxZoom, Math.round(z * 1.35)))}
+          title="Thu nhỏ"
+        >−</button>
         <button
           type="button"
           className={pitchSpan === 88 ? "roll-fit on" : "roll-fit"}
-          onClick={() => { setPitchSpan(88); setPitchOffset(0); setFullHeight(true); }}
           aria-pressed={pitchSpan === 88}
-          title="Show full piano pitch range"
-        >All</button>
+          onClick={() => {
+            setPitchSpan((s) => (s === 88 ? 36 : 88));
+            setPitchOffset(0);
+          }}
+          title="Chuyển giữa toàn bộ 88 phím (A0–C8) và phóng to vùng nốt"
+        >88 phím</button>
         <button
           type="button"
           className={fullHeight ? "roll-fit on" : "roll-fit"}
           onClick={() => setFullHeight((value) => !value)}
           aria-pressed={fullHeight}
-          title="Expand piano roll vertically"
-        >{fullHeight ? "Collapse" : "Expand"}</button>
+          title="Mở rộng chiều cao Piano Roll"
+        >{fullHeight ? "Thu gọn" : "Mở rộng"}</button>
       </div>
     </div>
   );

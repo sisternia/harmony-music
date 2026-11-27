@@ -10,7 +10,6 @@ type WorkspaceNavbarProps = {
   collapsed: boolean;
   onToggle: () => void;
   onAuth: () => void;
-  onSearch?: () => void;
   projects?: ProjectSummary[];
 };
 
@@ -22,7 +21,7 @@ function SongscriptionMark() {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h5M8 16h4M16.5 11.5v5" /><circle cx="15.1" cy="16.8" r="1.5" fill="currentColor" stroke="none" /></svg>;
 }
 
-export default function Navbar({ path, navigate, collapsed, onToggle, onAuth, onSearch, projects }: WorkspaceNavbarProps) {
+export default function Navbar({ path, navigate, collapsed, onToggle, onAuth, projects }: WorkspaceNavbarProps) {
   const projectList = Array.isArray(projects) ? projects : [];
   const isProject = path === "/projects" || path.startsWith("/p/");
   const isSongscription = path === "/songscription" || path.startsWith("/songscription/");
@@ -56,7 +55,6 @@ export default function Navbar({ path, navigate, collapsed, onToggle, onAuth, on
       <div className="studio-nav-divider" />
       <button className={isProject ? "active" : ""} aria-current={isProject ? "page" : undefined} onClick={() => navigate("/projects")}><b>♫</b><span>Projects</span><em>{projectList.length}</em></button>
       <button className={path === "/collections" ? "active" : ""} aria-current={path === "/collections" ? "page" : undefined} onClick={() => navigate("/collections")}><b>▥</b><span>Collections</span></button>
-      <button onClick={() => onSearch ? onSearch() : navigate("/projects")}><b>⌕</b><span>Search</span></button>
     </nav>
     <div className="studio-recent">
       <div className="studio-section-label">RECENT PROJECTS</div>
@@ -64,7 +62,6 @@ export default function Navbar({ path, navigate, collapsed, onToggle, onAuth, on
       {!projectList.length && <p>Bản nhạc của bạn sẽ xuất hiện ở đây.</p>}
     </div>
     <div className="studio-sidebar-bottom">
-      <button className="studio-home-link" onClick={() => navigate("/")}>⌂ <span>Về trang chủ</span></button>
       <button className="studio-profile" onClick={handleProfileClick} title={authUser ? `${authUser.email} (Bấm để đăng xuất)` : "Đăng nhập / Đăng ký"}>
         <span className="studio-avatar">{avatarChar}</span>
         <span>

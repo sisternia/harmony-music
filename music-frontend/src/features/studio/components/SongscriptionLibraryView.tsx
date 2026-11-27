@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import Icon from "../../../components/ui/Icon";
+import { colors } from "../../../theme/colors";
 import type { ProjectSummary, SongscriptionItem } from "../api";
 
 export type LibraryStatusFilter = "all" | "running" | "needs_review" | "reviewed" | "failed";
@@ -62,19 +64,13 @@ export function SongscriptionLibraryView({
   onRetryFetch,
   onCreateNew,
   onOpenSession,
-  onRenameSession,
   onRetrySession,
   onDeleteSession,
 }: SongscriptionLibraryViewProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<LibraryStatusFilter>("all");
   const [sortBy, setSortBy] = useState<LibrarySort>("recent");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
-
-  const menuContainerRef = useRef<HTMLDivElement>(null);
 
   const projectMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -83,24 +79,6 @@ export function SongscriptionLibraryView({
     }
     return m;
   }, [projects]);
-
-  useEffect(() => {
-    if (!openMenuId) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenMenuId(null);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [openMenuId]);
 
   const statusCounts = useMemo(() => {
     const counts = { all: items.length, running: 0, needs_review: 0, reviewed: 0, failed: 0 };
@@ -137,27 +115,6 @@ export function SongscriptionLibraryView({
     });
     return sorted;
   }, [items, search, statusFilter, sortBy, projectMap]);
-
-  const startRename = (item: SongscriptionItem) => {
-    setOpenMenuId(null);
-    setRenamingId(item.id);
-    setRenameValue(item.title);
-  };
-
-  const commitRename = async (item: SongscriptionItem) => {
-    const trimmed = renameValue.trim();
-    if (!trimmed || trimmed === item.title) {
-      setRenamingId(null);
-      return;
-    }
-    setBusyActionId(item.id);
-    try {
-      await onRenameSession(item, trimmed);
-      setRenamingId(null);
-    } finally {
-      setBusyActionId(null);
-    }
-  };
 
   return (
     <div className="songscription-studio ss-library-page">
@@ -278,7 +235,7 @@ export function SongscriptionLibraryView({
             </button>
           </div>
         ) : (
-          <div className="ss-lib-list" ref={menuContainerRef}>
+          <div className="ss-lib-list">
             {visibleItems.map(item => {
               const status = deriveSessionStatus(item);
               const totalLines = item.segment_count || 0;
@@ -289,8 +246,6 @@ export function SongscriptionLibraryView({
                 item.project_id ? projectMap.get(item.project_id) || item.project_id : null;
               const dateLabel = formatSessionDate(item.updated || item.completed || item.created);
               const isBusy = busyActionId === item.id;
-              const isMenuOpen = openMenuId === item.id;
-              const isRenaming = renamingId === item.id;
 
               return (
                 <article
@@ -304,44 +259,13 @@ export function SongscriptionLibraryView({
 
                     <div className="ss-lib-card-body">
                       <div className="ss-lib-card-top">
-                        {isRenaming ? (
-                          <form
-                            className="ss-lib-rename-form"
-                            onSubmit={e => {
-                              e.preventDefault();
-                              void commitRename(item);
-                            }}
-                          >
-                            <input
-                              type="text"
-                              value={renameValue}
-                              onChange={e => setRenameValue(e.target.value)}
-                              aria-label="Tên mới của Songscription"
-                              autoFocus
-                              onKeyDown={e => {
-                                if (e.key === "Escape") setRenamingId(null);
-                              }}
-                            />
-                            <button type="submit" className="ss-mini-btn primary" disabled={isBusy}>
-                              Lưu
-                            </button>
-                            <button
-                              type="button"
-                              className="ss-mini-btn"
-                              onClick={() => setRenamingId(null)}
-                            >
-                              Hủy
-                            </button>
-                          </form>
-                        ) : (
-                          <button
-                            type="button"
-                            className="ss-lib-card-title-btn"
-                            onClick={() => onOpenSession(item.id)}
-                          >
-                            <strong>{item.title}</strong>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="ss-lib-card-title-btn"
+                          onClick={() => onOpenSession(item.id)}
+                        >
+                          <strong>{item.title}</strong>
+                        </button>
 
                         <span className={`ss-status-badge tone-${status.tone}`}>
                           {status.label}
@@ -412,74 +336,43 @@ export function SongscriptionLibraryView({
                           : "Mở & chỉnh sửa"}
                     </button>
 
-                    <div className="ss-dropdown-wrap">
+                    {(item.state === "error" || item.state === "cancelled") && (
                       <button
                         type="button"
                         className="ss-icon-menu-btn"
-                        aria-haspopup="menu"
-                        aria-expanded={isMenuOpen}
-                        aria-label={`Tùy chọn khác cho ${item.title}`}
-                        onClick={() => setOpenMenuId(cur => (cur === item.id ? null : item.id))}
+                        disabled={isBusy}
+                        title={`Thử trích xuất lại ${item.title}`}
+                        aria-label={`Thử trích xuất lại ${item.title}`}
+                        onClick={async () => {
+                          setBusyActionId(item.id);
+                          try {
+                            await onRetrySession(item);
+                          } finally {
+                            setBusyActionId(null);
+                          }
+                        }}
                       >
-                        ⋯
+                        ↻
                       </button>
-                      {isMenuOpen && (
-                        <div className="ss-dropdown-menu" role="menu">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              onOpenSession(item.id);
-                            }}
-                          >
-                            Mở trình rà soát lời
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => startRename(item)}
-                          >
-                            Đổi tên phiên
-                          </button>
-                          {(item.state === "error" || item.state === "cancelled") && (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              disabled={isBusy}
-                              onClick={async () => {
-                                setOpenMenuId(null);
-                                setBusyActionId(item.id);
-                                try {
-                                  await onRetrySession(item);
-                                } finally {
-                                  setBusyActionId(null);
-                                }
-                              }}
-                            >
-                              Thử trích xuất lại
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="danger"
-                            disabled={isBusy || status.key === "running"}
-                            onClick={async () => {
-                              setOpenMenuId(null);
-                              setBusyActionId(item.id);
-                              try {
-                                await onDeleteSession(item);
-                              } finally {
-                                setBusyActionId(null);
-                              }
-                            }}
-                          >
-                            Xóa Songscription
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="ss-icon-menu-btn ss-lib-delete-btn"
+                      disabled={isBusy || status.key === "running"}
+                      title={status.key === "running" ? "Đang xử lý, chưa thể xóa" : `Xóa ${item.title}`}
+                      aria-label={`Xóa ${item.title}`}
+                      onClick={async () => {
+                        setBusyActionId(item.id);
+                        try {
+                          await onDeleteSession(item);
+                        } finally {
+                          setBusyActionId(null);
+                        }
+                      }}
+                    >
+                      <Icon name="trash" color={colors.danger} size={17} />
+                    </button>
                   </div>
                 </article>
               );

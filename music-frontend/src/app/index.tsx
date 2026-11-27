@@ -21,6 +21,8 @@ export function getApiBase() {
 
 export default function HomeScreen() {
   const path = usePathname();
+  // On web, RootLayout mounts a single persistent StudioDOM so audio/video playback never stops across route changes.
+  if (Platform.OS === "web") return null;
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.screen}>
       <View style={styles.content}>

@@ -5,7 +5,7 @@ import { colors } from '@/theme/colors';
 export type IconName =
   | 'home' | 'community' | 'news' | 'ai' | 'settings' | 'play' | 'pause'
   | 'previous' | 'next' | 'rewind5' | 'forward5' | 'volumeMute' | 'volumeLow' | 'volumeMedium'
-  | 'volumeHigh' | 'layers' | 'piano' | 'songscription' | 'musicNote' | 'musicNotes';
+  | 'volumeHigh' | 'layers' | 'piano' | 'songscription' | 'musicNote' | 'musicNotes' | 'trash';
 
 type IconProps = { name: IconName; color?: string; size?: number; style?: StyleProp<ImageStyle> };
 
@@ -30,6 +30,7 @@ const shapes: Record<IconName, string> = {
   layers: '<path d="m12 3 8 4.5-8 4.5-8-4.5L12 3zM4 12l8 4.5 8-4.5M4 16.5l8 4.5 8-4.5"/>',
   piano: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v8M10 4v8M14 4v8M18 4v8M8 12v8M12 12v8M16 12v8"/>',
   songscription: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4M16 12.5v4.5"/><circle cx="14.7" cy="17.2" r="1.4" fill="currentColor" stroke="none"/>',
+  trash: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>',
 };
 
 export default function Icon({ name, color = colors.textMuted, size = 22, style }: IconProps) {

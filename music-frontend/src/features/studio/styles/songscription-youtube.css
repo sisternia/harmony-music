@@ -1,0 +1,1137 @@
+/* YouTube Cinema Split-Screen Layout for Songscription (Akaiwa-inspired)
+   Strictly uses semantic design tokens from src/styles/theme.css — zero literal colors. */
+
+.ss-yt-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ss-yt-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ss-yt-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ss-yt-title-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ss-yt-title-block h2 {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Light Studio Toolbar above YouTube Split-Screen (holds Songscription-only tools: Audio Source & Display Toggles) */
+.ss-yt-studio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.ss-yt-studio-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ss-yt-studio-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.ss-yt-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.ss-yt-seg-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.ss-yt-seg-btn:hover:not(:disabled):not(.on) {
+  color: var(--text);
+  background: var(--hover-bg);
+}
+
+.ss-yt-seg-btn.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.ss-yt-seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ss-yt-stem-vol {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ss-yt-stem-vol-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-yt-stem-vol-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent);
+}
+
+.ss-yt-stem-hint {
+  font-size: 0.76rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ss-yt-toggle-pill {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-yt-toggle-pill:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.ss-yt-toggle-pill.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ss-yt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(290px, 28vw, 420px);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 4px;
+}
+
+.ss-yt-stage-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Dark Cinema Video Theater Card — scales height & width in lockstep with Script panel */
+.ss-yt-stage {
+  display: flex;
+  flex-direction: column;
+  background: var(--instrument-bg);
+  color: var(--instrument-text);
+  border-radius: 16px;
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ss-yt-video-box {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  background: var(--instrument-bg);
+  overflow: hidden;
+}
+
+.ss-yt-iframe-host,
+.ss-yt-iframe-host iframe,
+.ss-yt-iframe-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Live Subtitle / Karaoke Strip beneath Video */
+.ss-yt-subtitle-bar {
+  min-height: 76px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--instrument-panel);
+  border-top: 1px solid color-mix(in srgb, var(--instrument-text) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--instrument-text) 10%, transparent);
+}
+
+.ss-yt-subtitle-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.ss-yt-subtitle-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ss-yt-sub-chord {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 26%, var(--instrument-bg));
+  color: var(--instrument-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.ss-yt-sub-text {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--instrument-text);
+}
+
+.ss-yt-word {
+  display: inline;
+  padding: 1px 2px;
+  border-radius: 5px;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.ss-yt-word.passed {
+  color: var(--palette-coral);
+}
+
+.ss-yt-word.active {
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 1px 5px;
+}
+
+.ss-yt-sub-idle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--instrument-text-muted);
+}
+
+/* Right Synchronized Lyrics Sidebar (Akaiwa-style tabbed side panel) */
+.ss-yt-panel-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-yt-tabs {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  padding: 0 12px;
+  gap: 4px;
+}
+
+.ss-yt-tab {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 12px 10px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.14s ease;
+}
+
+.ss-yt-tab:hover {
+  color: var(--text);
+}
+
+.ss-yt-tab.active {
+  color: var(--accent);
+}
+
+.ss-yt-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.ss-yt-tab-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-2);
+}
+
+.ss-yt-tab.active .ss-yt-tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ss-yt-panel-tools {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ss-yt-panel-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-yt-panel-search-row .ss-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ss-yt-filter-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ss-yt-filter-pill {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ss-yt-filter-pill[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ss-yt-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  padding: 8px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ss-yt-panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ss-yt-panel-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+.ss-yt-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Plain text is a document view. Keep its own scroll affordance so the full
+   transcript remains reachable without adding a page-level scrollbar. */
+.ss-yt-panel-scroll.is-plain {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+
+.ss-yt-panel-scroll.is-plain::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+}
+
+/* The synchronized lyric is already visible in the side panel. Keep the
+   player focused on the video and its native controls. */
+.ss-yt-subtitle-bar {
+  display: none;
+}
+
+/* Compact Akaiwa-inspired lyric row inside right sidebar */
+.ss-yt-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-yt-row:hover {
+  background: var(--hover-bg);
+}
+
+.ss-yt-row.is-playing {
+  background: var(--playing-bg);
+  border-color: var(--accent);
+}
+
+.ss-yt-row.is-selected {
+  background: var(--selection-bg);
+  border-color: var(--selection-border);
+}
+
+.ss-yt-row-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ss-yt-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 6px;
+  flex-shrink: 0;
+  background: var(--palette-lavender);
+}
+
+.ss-yt-row.is-playing .ss-yt-dot {
+  background: var(--accent);
+}
+
+.ss-yt-dot.status-verified {
+  background: var(--ok);
+}
+
+.ss-yt-dot.status-needs_review {
+  background: var(--warning);
+}
+
+.ss-yt-dot.status-edited {
+  background: var(--accent-2);
+}
+
+.ss-yt-row-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ss-yt-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.ss-yt-row.event-vocable .ss-yt-row-text,
+.ss-yt-row.event-humming .ss-yt-row-text,
+.ss-yt-row.is-adlib .ss-yt-row-text {
+  font-style: italic;
+  color: var(--text-2);
+}
+
+.ss-yt-row.is-playing.event-vocable .ss-yt-row-text,
+.ss-yt-row.is-playing.event-humming .ss-yt-row-text,
+.ss-yt-row.is-playing.is-adlib .ss-yt-row-text {
+  color: var(--text);
+}
+
+.ss-yt-row-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.ss-yt-row-text {
+  font-size: 0.92rem;
+  line-height: 1.52;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.ss-yt-row-text .ss-lyric-word {
+  display: inline;
+  padding: 1px 2px;
+  border-radius: 5px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.ss-yt-row.is-playing .ss-yt-row-text .word-sung {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ss-yt-row.is-playing .ss-yt-row-text .word-active {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+.ss-yt-row-text .word-uncertain {
+  text-decoration: underline wavy var(--warning);
+  text-underline-offset: 3px;
+}
+
+.ss-yt-row-edit-btn {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-yt-row:hover .ss-yt-row-edit-btn,
+.ss-yt-row.is-selected .ss-yt-row-edit-btn {
+  opacity: 1;
+}
+
+.ss-yt-row-edit-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Inline YouTube link attachment bar in modal/menu */
+.ss-yt-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.ss-yt-link-box input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--control-border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.ss-lib-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ss-lib-delete-btn:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.ss-lib-delete-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Custom In-App Confirmation Dialog (replaces native browser confirm alerts) */
+.ss-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ss-confirm-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 22px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ss-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ss-confirm-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ss-confirm-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ss-confirm-badge.is-danger {
+  background: var(--danger-soft);
+}
+
+.ss-confirm-message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.ss-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ss-danger-btn {
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: var(--on-accent);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.14s ease, transform 0.12s ease;
+}
+
+.ss-danger-btn:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.ss-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark Cinema Audio Theater Stage (Local / Project audio — mirrors YouTube stage geometry) */
+.ss-audio-stage {
+  position: relative;
+  justify-content: space-between;
+  background:
+    radial-gradient(
+      110% 85% at 50% 18%,
+      color-mix(in srgb, var(--palette-rose) 18%, var(--instrument-bg)) 0%,
+      var(--instrument-bg) 68%
+    );
+}
+
+.ss-audio-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 8px;
+  flex-shrink: 0;
+}
+
+.ss-audio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--instrument-text-muted);
+  background: color-mix(in srgb, var(--instrument-panel) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--instrument-text) 12%, transparent);
+}
+
+.ss-audio-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--palette-lavender);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ss-audio-badge-dot.is-playing {
+  background: var(--palette-coral);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--palette-coral) 26%, transparent);
+}
+
+.ss-audio-yt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--instrument-text) 16%, transparent);
+  background: color-mix(in srgb, var(--instrument-panel) 78%, transparent);
+  color: var(--instrument-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-audio-yt-btn:hover {
+  background: var(--instrument-panel);
+  color: var(--instrument-text);
+  border-color: color-mix(in srgb, var(--palette-rose) 55%, transparent);
+}
+
+.ss-audio-stage-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 16px 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.ss-audio-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 36px;
+  opacity: 0.75;
+}
+
+.ss-audio-eq span {
+  width: 4px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to top, var(--palette-lavender), var(--palette-coral));
+  transition: height 0.2s ease, opacity 0.2s ease;
+}
+
+.ss-audio-eq span:nth-child(2),
+.ss-audio-eq span:nth-child(8) {
+  height: 12px;
+}
+
+.ss-audio-eq span:nth-child(3),
+.ss-audio-eq span:nth-child(7) {
+  height: 16px;
+}
+
+.ss-audio-eq span:nth-child(4),
+.ss-audio-eq span:nth-child(6) {
+  height: 14px;
+}
+
+.ss-audio-eq span:nth-child(5) {
+  height: 20px;
+}
+
+.ss-audio-eq.is-playing {
+  opacity: 1;
+}
+
+.ss-audio-eq.is-playing span {
+  animation: ss-audio-wave 1.05s ease-in-out infinite alternate;
+}
+
+.ss-audio-eq.is-playing span:nth-child(1) { animation-delay: 0.05s; }
+.ss-audio-eq.is-playing span:nth-child(2) { animation-delay: 0.22s; }
+.ss-audio-eq.is-playing span:nth-child(3) { animation-delay: 0.38s; }
+.ss-audio-eq.is-playing span:nth-child(4) { animation-delay: 0.14s; }
+.ss-audio-eq.is-playing span:nth-child(5) { animation-delay: 0.46s; }
+.ss-audio-eq.is-playing span:nth-child(6) { animation-delay: 0.28s; }
+.ss-audio-eq.is-playing span:nth-child(7) { animation-delay: 0.1s; }
+.ss-audio-eq.is-playing span:nth-child(8) { animation-delay: 0.34s; }
+.ss-audio-eq.is-playing span:nth-child(9) { animation-delay: 0.18s; }
+
+@keyframes ss-audio-wave {
+  0% { height: 7px; opacity: 0.6; }
+  100% { height: 34px; opacity: 1; }
+}
+
+.ss-audio-lyrics-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 640px;
+  width: 100%;
+}
+
+.ss-audio-lyric-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ss-audio-lyric-text {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--instrument-text);
+  letter-spacing: -0.01em;
+}
+
+.ss-audio-lyric-line.is-secondary .ss-audio-lyric-text {
+  font-size: clamp(0.98rem, 1.5vw, 1.18rem);
+  font-weight: 600;
+  color: var(--instrument-text-muted);
+}
+
+.ss-audio-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+}
+
+.ss-audio-center-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.ss-audio-stage-body:hover .ss-audio-center-play {
+  background: var(--accent-hover);
+  transform: scale(1.06);
+}
+
+.ss-audio-center-play.is-playing {
+  background: color-mix(in srgb, var(--instrument-panel) 88%, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--palette-coral) 40%, transparent);
+  color: var(--palette-coral);
+  font-size: 1.4rem;
+}
+
+.ss-audio-idle-title {
+  margin: 4px 0 0;
+  font-size: clamp(1.05rem, 1.7vw, 1.32rem);
+  font-weight: 700;
+  color: var(--instrument-text);
+  line-height: 1.35;
+}
+
+.ss-audio-idle-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--instrument-text-muted);
+}
+
+/* Integrated Cinema Transport Bar inside Audio Stage */
+.ss-audio-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 18px 14px;
+  background: linear-gradient(
+    to top,
+    var(--instrument-panel) 0%,
+    color-mix(in srgb, var(--instrument-bg) 82%, transparent) 100%
+  );
+  border-top: 1px solid color-mix(in srgb, var(--instrument-text) 10%, transparent);
+}
+
+.ss-audio-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--palette-coral) var(--fill, 0%),
+    color-mix(in srgb, var(--instrument-text) 22%, transparent) var(--fill, 0%)
+  );
+  cursor: pointer;
+  outline: none;
+  transition: height 0.12s ease;
+}
+
+.ss-audio-scrubber:hover:not(:disabled) {
+  height: 7px;
+}
+
+.ss-audio-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--on-accent);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.ss-audio-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--on-accent);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.ss-audio-scrubber:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ss-audio-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ss-audio-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ss-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--instrument-text);
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.ss-audio-btn:hover {
+  background: color-mix(in srgb, var(--instrument-text) 12%, transparent);
+}
+
+.ss-audio-play-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.14s ease, transform 0.12s ease;
+}
+
+.ss-audio-play-btn:hover {
+  background: var(--accent-hover);
+  transform: scale(1.04);
+}
+
+.ss-audio-vol {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ss-audio-clock {
+  margin-left: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--instrument-text-muted);
+}
+
+.ss-audio-speed-btn {
+  border: 1px solid color-mix(in srgb, var(--instrument-text) 18%, transparent);
+  background: color-mix(in srgb, var(--instrument-panel) 80%, transparent);
+  color: var(--instrument-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.ss-audio-speed-btn:hover {
+  background: var(--instrument-panel);
+  border-color: var(--palette-coral);
+}
+
+@media (max-width: 1080px) {
+  .ss-yt-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .ss-yt-stage-col {
+    height: auto;
+    overflow: visible;
+  }
+
+  .ss-yt-stage {
+    flex: 0 0 auto;
+    height: auto;
+  }
+
+  .ss-audio-stage {
+    min-height: 290px;
+  }
+
+  .ss-yt-video-box {
+    flex: 0 0 auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .ss-yt-panel-col {
+    height: 520px;
+    min-height: 360px;
+    max-height: 68vh;
+  }
+}
+

@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type ProjectSummary, type SongscriptionItem } from "../api";
 import { LANGUAGE_OPTIONS, stripImportedLyricsFormat } from "../utils/lyricsUtils";
+import {
+  DEFAULT_SONGSCRIPTION_MODEL_ID,
+  getSongscriptionModels,
+  normalizeSongscriptionModelId,
+} from "../utils/songscriptionModels";
 import "../styles/songscription-create.css";
 
 const MEDIA_ACCEPT = /\.(mp3|wav|flac|m4a|ogg|opus|aac|mp4|webm|mkv)$/i;
@@ -37,7 +42,9 @@ export function SongscriptionCreateModal({
   const [customTitle, setCustomTitle] = useState("");
   const [userLyricsText, setUserLyricsText] = useState("");
   const [language, setLanguage] = useState("auto");
-  const [modelId, setModelId] = useState("turbo");
+  const [modelId, setModelId] = useState(DEFAULT_SONGSCRIPTION_MODEL_ID);
+  const availableModels = getSongscriptionModels(models);
+  const selectedModelId = normalizeSongscriptionModelId(modelId);
   const [isolateVocals, setIsolateVocals] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -196,7 +203,7 @@ export function SongscriptionCreateModal({
       form.append("lyrics_text", userLyricsText);
     }
     form.append("language", language);
-    form.append("model", modelId);
+    form.append("model", selectedModelId);
     form.append("isolate_vocals", String(isolateVocals && vocalAvailable));
 
     setSubmitting(true);
@@ -378,8 +385,8 @@ export function SongscriptionCreateModal({
                 </label>
                 <label className="ss-create-field" htmlFor="ss-model-select">
                   <span>Mô hình nhận diện AI</span>
-                  <select id="ss-model-select" value={modelId} onChange={e => setModelId(e.target.value)}>
-                    {models.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
+                  <select id="ss-model-select" value={selectedModelId} onChange={e => setModelId(e.target.value)}>
+                    {availableModels.map(model => <option key={model.id} value={model.id}>{model.label}</option>)}
                   </select>
                 </label>
                 <label className="ss-create-vocals">

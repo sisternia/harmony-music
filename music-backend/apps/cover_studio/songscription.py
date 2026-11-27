@@ -14,16 +14,25 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .engine import Engine
+from .lyrics_schema import (
+    DEFAULT_STREAM_ID,
+    SCHEMA_VERSION,
+    get_multi_singer_separation_status,
+    migrate_transcript,
+    stream_label,
+)
 from .lyrics_service import (
     LYRICS_MODELS,
     LyricsCache,
     ProjectLyricsStore,
     build_full_text,
+    ensure_instrumental_cached,
     execute_lyrics_pipeline,
     language_label,
     retranscribe_flagged_segments,
     sanitize_edited_segments,
 )
+from .music_asr_engine import DEFAULT_MODEL_ID, normalize_model_id
 from .project import Project, file_sha1, now, read_json, safe_name, write_json
 
 SONGSCRIPTION_MODELS = LYRICS_MODELS
@@ -67,6 +76,23 @@ class SongscriptionStore:
         except Exception:
             return {"review_needs_count": 0, "review_done_count": 0}
 
+    def _enrich_youtube_meta(self, data: dict) -> dict:
+        """Inherit youtube_url/youtube_id from a linked Project if not explicitly stored on the session."""
+        if data.get("youtube_id"):
+            return data
+        pid = data.get("project_id")
+        if pid and Path(pid).name == pid:
+            p_json = self.root / pid / "project.json"
+            if p_json.is_file():
+                try:
+                    pdata = read_json(p_json)
+                    if pdata.get("youtube_id"):
+                        data["youtube_id"] = pdata.get("youtube_id")
+                        data["youtube_url"] = pdata.get("youtube_url")
+                except Exception:
+                    pass
+        return data
+
     def list(self) -> list[dict]:
         with self._lock:
             items: list[dict] = []
@@ -75,25 +101,75 @@ class SongscriptionStore:
                     meta = d / "item.json"
                     if meta.is_file():
                         try:
-                            data = read_json(meta)
+                            data = self._enrich_youtube_meta(read_json(meta))
                             data.update(self._review_stats(d))
                             items.append(data)
                         except Exception:
                             continue
             return sorted(items, key=lambda x: x.get("updated") or x.get("completed") or x.get("created", ""), reverse=True)
 
+    def _sync_stream_audio_flags(self, transcript: dict | None, sha1: str | None) -> dict | None:
+        if not transcript or not sha1:
+            return transcript
+        cached_streams = self.cache.available_streams(str(sha1))
+        existing_ids = [str(st.get("id") or DEFAULT_STREAM_ID) for st in (transcript.get("streams") or [])]
+        merged_ids = sorted(set(existing_ids) | set(cached_streams) | {DEFAULT_STREAM_ID})
+        transcript["streams"] = [
+            {
+                "id": st_id,
+                "label": stream_label(st_id),
+                "has_isolated_audio": self.cache.has_stream_vocal(str(sha1), st_id),
+            }
+            for st_id in merged_ids
+        ]
+        return transcript
+
     def get(self, sid: str) -> dict:
         with self._lock:
             d = self._item_dir(sid)
-            data = read_json(d / "item.json")
+            data = self._enrich_youtube_meta(read_json(d / "item.json"))
             data.update(self._review_stats(d))
             transcript_path = d / "transcript.json"
             if transcript_path.is_file():
                 try:
-                    data["transcript"] = read_json(transcript_path)
+                    tr = migrate_transcript(read_json(transcript_path))
+                    data["transcript"] = self._sync_stream_audio_flags(tr, data.get("audio_sha1"))
                 except Exception:
                     data["transcript"] = None
             return data
+
+    def vocal_audio_path(self, sid: str) -> Path | None:
+        d = self._item_dir(sid)
+        data = read_json(d / "item.json")
+        sha1 = data.get("audio_sha1")
+        if sha1 and self.cache.has_vocal(str(sha1)):
+            return self.cache.vocal_path(str(sha1))
+        return None
+
+    def has_instrumental_audio(self, sha1: str | None) -> bool:
+        if not sha1:
+            return False
+        s = str(sha1)
+        return self.cache.has_instrumental(s) or self.cache.has_vocal(s)
+
+    def instrumental_audio_path(self, sid: str, *, engine: Engine | None = None) -> Path | None:
+        d = self._item_dir(sid)
+        data = read_json(d / "item.json")
+        sha1 = data.get("audio_sha1")
+        if not sha1:
+            return None
+        existing = self.cache.existing_instrumental_path(str(sha1), require_studio_stem=True)
+        if existing is not None:
+            return existing
+        return ensure_instrumental_cached(self.cache, self.audio_path(sid), str(sha1), engine=engine)
+
+    def stream_audio_path(self, sid: str, stream_id: str) -> Path | None:
+        d = self._item_dir(sid)
+        data = read_json(d / "item.json")
+        sha1 = data.get("audio_sha1")
+        if sha1 and self.cache.has_stream_vocal(str(sha1), stream_id):
+            return self.cache.stream_vocal_path(str(sha1), stream_id)
+        return None
 
     def audio_path(self, sid: str) -> Path | None:
         d = self._item_dir(sid)
@@ -123,10 +199,12 @@ class SongscriptionStore:
         *,
         source_kind: str,
         project_id: str | None = None,
+        youtube_url: str | None = None,
+        youtube_id: str | None = None,
         mode: str = "extract",
         lyrics_text: str = "",
         requested_language: str = "auto",
-        model_id: str = "turbo",
+        model_id: str = DEFAULT_MODEL_ID,
         isolate_vocals: bool = True,
     ) -> dict:
         with self._lock:
@@ -150,9 +228,11 @@ class SongscriptionStore:
                 "error": None,
                 "source_kind": source_kind,
                 "project_id": project_id,
+                "youtube_url": youtube_url,
+                "youtube_id": youtube_id,
                 "audio_sha1": sha1,
                 "requested_language": requested_language or "auto",
-                "model": model_id,
+                "model": normalize_model_id(model_id),
                 "isolate_vocals": bool(isolate_vocals),
                 "audio_file": audio_name,
                 "language": None,
@@ -181,6 +261,8 @@ class SongscriptionStore:
         with self._lock:
             d = self._item_dir(sid)
             data = read_json(d / "item.json")
+            if "model" in fields:
+                fields["model"] = normalize_model_id(fields["model"])
             data.update(fields)
             write_json(d / "item.json", data)
             if transcript is not None:
@@ -190,14 +272,40 @@ class SongscriptionStore:
 
     def save_edited_segments(self, sid: str, raw_segments: list[dict], title: str | None = None) -> dict:
         item = self.get(sid)
-        transcript = item.get("transcript") or {}
+        transcript = migrate_transcript(item.get("transcript") or {}) or {}
         fallback_lang = str(transcript.get("language") or item.get("language") or "en")
         cleaned = sanitize_edited_segments(raw_segments, fallback_lang=fallback_lang)
+        sha1 = str(item.get("audio_sha1") or "")
+        cached_streams = self.cache.available_streams(sha1) if sha1 else []
+        streams_present = sorted(
+            {str(s.get("stream_id") or DEFAULT_STREAM_ID) for s in cleaned} | set(cached_streams)
+        ) or [DEFAULT_STREAM_ID]
+        history = list(transcript.get("edit_history") or [])
+        history.append(
+            {
+                "saved_at": now(),
+                "segment_count": len(cleaned),
+                "edited_count": sum(1 for s in cleaned if s.get("review_status") == "edited"),
+                "verified_count": sum(1 for s in cleaned if s.get("review_status") == "verified"),
+            }
+        )
         new_transcript = {
             **transcript,
+            "schema_version": SCHEMA_VERSION,
             "language": fallback_lang,
             "language_name": transcript.get("language_name") or language_label(fallback_lang),
+            "is_multilingual": len({s.get("language") for s in cleaned if s.get("language")}) > 1,
+            "streams": [
+                {
+                    "id": st_id,
+                    "label": stream_label(st_id),
+                    "has_isolated_audio": bool(sha1 and self.cache.has_stream_vocal(sha1, st_id)),
+                }
+                for st_id in streams_present
+            ],
+            "multi_singer_separation": transcript.get("multi_singer_separation") or get_multi_singer_separation_status(),
             "segments": cleaned,
+            "edit_history": history[-25:],
             "full_text": build_full_text(cleaned, include_sections=False),
             "structured_text": build_full_text(cleaned, include_sections=True),
         }
@@ -226,6 +334,7 @@ class SongscriptionStore:
         *,
         segment_ids: list[int] | None = None,
         model_id: str | None = None,
+        language_override: str | None = None,
     ) -> dict:
         """Precision multi-pass re-transcription for flagged ('Cần kiểm tra') or specified line IDs."""
         item = self.get(sid)
@@ -236,8 +345,12 @@ class SongscriptionStore:
         if audio_src is None or not audio_src.is_file():
             raise FileNotFoundError("Không tìm thấy tệp âm thanh nguồn để đọc lại lời bài hát.")
 
-        lang = str(transcript.get("language") or item.get("language") or item.get("requested_language") or "auto")
-        eff_model = model_id or str(item.get("model") or "turbo")
+        lang = (
+            language_override.strip().lower()
+            if language_override and language_override.strip()
+            else str(transcript.get("language") or item.get("language") or item.get("requested_language") or "auto")
+        )
+        eff_model = normalize_model_id(model_id or item.get("model"))
         isolate = bool(item.get("isolate_vocals", True))
 
         updated_segs, results = retranscribe_flagged_segments(
@@ -251,6 +364,7 @@ class SongscriptionStore:
             isolate_vocals=isolate,
         )
 
+        self.update(sid, model=eff_model)
         if results:
             saved = self.save_edited_segments(sid, updated_segs)
         else:
@@ -303,7 +417,8 @@ def run_songscription_job(
     if audio_src is None or not audio_src.is_file():
         raise FileNotFoundError("Không tìm thấy tệp âm thanh nguồn để xử lý lời bài hát.")
 
-    store.update(sid, state="running", error=None)
+    model_id = normalize_model_id(item.get("model"))
+    store.update(sid, state="running", error=None, model=model_id)
     mode = "align" if item.get("mode") == "align" else "extract"
     lyrics_text = store.input_lyrics_text(sid) if mode == "align" else ""
 
@@ -312,10 +427,11 @@ def run_songscription_job(
         cache=store.cache,
         source_audio=audio_src,
         audio_sha1=item.get("audio_sha1"),
+        track_title=str(item.get("title") or ""),
         mode=mode,
         user_lyrics_text=lyrics_text,
         requested_language=str(item.get("requested_language") or "auto"),
-        model_id=str(item.get("model") or "turbo"),
+        model_id=model_id,
         isolate_vocals=bool(item.get("isolate_vocals", True)),
         chords=chords,
         progress=progress,
@@ -325,6 +441,7 @@ def run_songscription_job(
 
     summary_fields = {
         "state": "done",
+        "model": normalize_model_id(transcript.get("model") or model_id),
         "error": None,
         "completed": now(),
         "language": transcript["language"],
@@ -348,7 +465,6 @@ def run_songscription_job(
             ProjectLyricsStore(proj).update(
                 transcript=transcript,
                 mode=mode,
-                model=item.get("model") or "turbo",
                 requested_language=item.get("requested_language") or "auto",
                 isolate_vocals=bool(item.get("isolate_vocals", True)),
                 **summary_fields,
